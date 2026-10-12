@@ -1,5 +1,10 @@
 # carbon-trace
 
+## Collaborators
+
+- Satyam
+- Shaurya
+
 ## Setup
 
 Install Node.js, then clone the repository and install the root dependencies:
