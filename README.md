@@ -4,6 +4,7 @@
 
 - Satyam
 - Shaurya
+- Lalit
 
 ## Setup
 
