@@ -73,6 +73,10 @@ contract CarbonRegistry {
         emit CreditRetired(batchId, serial, msg.sender);
     }
 
+    function batchCount() external view returns (uint256) {
+    return batches.length;
+}
+
     function isRetired(uint256 batchId, uint256 serial) external view returns (bool) {
         return retired[batchId][serial];
     }

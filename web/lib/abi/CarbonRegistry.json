@@ -1,6 +1,6 @@
 {
-  "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-  "network": "hardhat",
+  "address": "0x4CA2eB292d2E27b596c42eDafeFb253a1707f375",
+  "network": "sepolia",
   "abi": [
     {
       "inputs": [],
@@ -135,6 +135,19 @@
           "internalType": "bool",
           "name": "",
           "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "batchCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
