@@ -44,7 +44,7 @@ export default function VerifyForm({ lookup }: Props) {
           onChange={(e) => setValue(e.target.value)}
           inputMode="numeric"
           placeholder="Enter a serial number, e.g. 1050"
-          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:font-medium placeholder:text-slate-500 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
         />
         <button
           type="submit"

@@ -12,7 +12,7 @@ interface Props {
 }
 
 const input =
-  "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100";
+  "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:font-medium placeholder:text-slate-500 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100";
 
 export default function RegisterForm({ onSubmit }: Props) {
   const [projectId, setProjectId] = useState("");
@@ -63,7 +63,7 @@ export default function RegisterForm({ onSubmit }: Props) {
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6">
         <div className="grid gap-5 sm:grid-cols-2">
-          <label className="block text-sm font-medium">
+          <label className="block text-sm font-medium text-slate-900">
             Project ID
             <input
               className={input}
@@ -72,7 +72,7 @@ export default function RegisterForm({ onSubmit }: Props) {
               placeholder="DEMO-KENYA-001"
             />
           </label>
-          <label className="block text-sm font-medium">
+          <label className="block text-sm font-medium text-slate-900">
             Vintage (year)
             <input
               className={input}
@@ -81,7 +81,7 @@ export default function RegisterForm({ onSubmit }: Props) {
               onChange={(e) => setVintage(e.target.value)}
             />
           </label>
-          <label className="block text-sm font-medium">
+          <label className="block text-sm font-medium text-slate-900">
             Start serial
             <input
               className={input}
@@ -91,7 +91,7 @@ export default function RegisterForm({ onSubmit }: Props) {
               placeholder="1050"
             />
           </label>
-          <label className="block text-sm font-medium">
+          <label className="block text-sm font-medium text-slate-900">
             End serial
             <input
               className={input}
@@ -103,7 +103,7 @@ export default function RegisterForm({ onSubmit }: Props) {
           </label>
         </div>
 
-        <label className="block text-sm font-medium">
+        <label className="block text-sm font-medium text-slate-900">
           Evidence PDF
           <div className="mt-1 flex items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
             <Upload className="h-5 w-5 text-slate-500" />
@@ -111,8 +111,14 @@ export default function RegisterForm({ onSubmit }: Props) {
               type="file"
               accept="application/pdf"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-700"
+              className="text-sm text-slate-900 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-700"
             />
+            {file && (
+              <CheckCircle2
+                className="h-5 w-5 shrink-0 text-emerald-600"
+                aria-label="Document selected"
+              />
+            )}
           </div>
         </label>
 

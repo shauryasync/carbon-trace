@@ -25,15 +25,15 @@ export default function Home() {
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <ShieldCheck className="h-6 w-6 text-emerald-600" />
-          <h2 className="mt-3 font-semibold">What it does</h2>
+          <h2 className="mt-3 font-bold text-black">What it does</h2>
           <p className="mt-1 text-sm text-slate-600">
             Blocks the same serial range from being registered twice for a project, anchors an
             evidence fingerprint on-chain, and shows which approved auditor attested a batch.
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <ShieldOff className="h-6 w-6 text-slate-500" />
-          <h2 className="mt-3 font-semibold">What it does not do</h2>
+          <ShieldOff className="h-6 w-6 text-red-600" />
+          <h2 className="mt-3 font-bold text-black">What it does not do</h2>
           <p className="mt-1 text-sm text-slate-600">
             It does not verify that carbon was actually removed. That needs auditors, satellites and
             sensors. The AI check only flags mismatches for a human to review.
