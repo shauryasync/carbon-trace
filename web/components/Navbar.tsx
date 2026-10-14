@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Leaf } from "lucide-react";
+import WalletButton from "./WalletButton";
 
 const links = [
   { href: "/register", label: "Register" },
@@ -32,7 +33,7 @@ export default function Navbar() {
               {l.label}
             </Link>
           ))}
-          {/* Task 5: wallet connect button goes here */}
+                    <WalletButton />
         </div>
       </nav>
     </header>
