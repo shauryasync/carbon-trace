@@ -1,5 +1,6 @@
 import { BadgeCheck, CircleSlash, Flag, ExternalLink, UserCheck, Clock } from "lucide-react";
 import { ZERO_ADDRESS, type Credit, type CreditStatus } from "./types";
+import VerifyQR from "./VerifyQR";
 
 const STATUS: Record<
   CreditStatus,
@@ -91,7 +92,9 @@ export default function StatusCard({ credit, serial }: { credit: Credit; serial:
           <dd className="break-all font-mono text-xs">{credit.evidenceHash}</dd>
         </div>
       </dl>
-
+                <div className="mt-6">
+        <VerifyQR serial={serial} />
+      </div>
       <a
         href={`https://sepolia.etherscan.io/tx/${credit.txHash}`}
         target="_blank"
