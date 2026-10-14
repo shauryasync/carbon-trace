@@ -1,39 +1,56 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Loader2, Search, SearchX } from "lucide-react";
 import type { Credit } from "./types";
 import StatusCard from "./StatusCard";
 
 interface Props {
   // Mock now, API route / contract helper later. Return null if not found.
+  // Pass a stable function (defined outside the component).
   lookup: (serial: number) => Promise<Credit | null>;
+  // If set (for example from a QR link), the lookup runs on load.
+  initialSerial?: string;
 }
 
-export default function VerifyForm({ lookup }: Props) {
-  const [value, setValue] = useState("");
+export default function VerifyForm({ lookup, initialSerial }: Props) {
+  const [value, setValue] = useState(initialSerial ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ serial: number; credit: Credit | null } | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  const runLookup = useCallback(
+    async (raw: string) => {
+      setError(null);
+      setResult(null);
+
+      const serial = Number(raw);
+      if (!raw.trim() || !Number.isInteger(serial) || serial < 0) {
+        return setError("Enter a whole-number serial, for example 1050.");
+      }
+
+      setLoading(true);
+      try {
+        setResult({ serial, credit: await lookup(serial) });
+      } catch {
+        setError("Lookup failed. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [lookup]
+  );
+
+  useEffect(() => {
+    if (initialSerial) {
+      setValue(initialSerial);
+      runLookup(initialSerial);
+    }
+  }, [initialSerial, runLookup]);
+
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setResult(null);
-
-    const serial = Number(value);
-    if (!value.trim() || !Number.isInteger(serial) || serial < 0) {
-      return setError("Enter a whole-number serial, for example 1050.");
-    }
-
-    setLoading(true);
-    try {
-      setResult({ serial, credit: await lookup(serial) });
-    } catch {
-      setError("Lookup failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    runLookup(value);
   }
 
   return (
@@ -44,7 +61,7 @@ export default function VerifyForm({ lookup }: Props) {
           onChange={(e) => setValue(e.target.value)}
           inputMode="numeric"
           placeholder="Enter a serial number, e.g. 1050"
-          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:font-medium placeholder:text-slate-500 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
         />
         <button
           type="submit"
