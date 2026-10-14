@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, Upload, AlertTriangle } from "lucide-react";
 import type { Credit, RegisterValues } from "./types";
 import { RegisterError, toRegisterError } from "./errors";
 import BlockedAlert from "./BlockedAlert";
+import { fireConfetti } from "./confetti";
 
 interface Props {
   // Mock now, real contract helper later. Throw to signal failure.
@@ -52,6 +53,8 @@ export default function RegisterForm({ onSubmit }: Props) {
         evidence: file,
       });
       setSuccess(credit);
+      setSuccess(credit);
+      fireConfetti();
     } catch (err) {
       setFailure(toRegisterError(err));
     } finally {
