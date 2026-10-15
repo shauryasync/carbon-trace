@@ -1,7 +1,7 @@
 "use client";
 
 import RegisterForm from "@/components/RegisterForm";
-import { mockRegister } from "@/components/mockData";
+import { register } from "@/components/api";
 
 export default function RegisterPage() {
   return (
@@ -10,8 +10,7 @@ export default function RegisterPage() {
       <p className="mt-1 mb-6 text-sm text-white/80">
         Records a serial range and an evidence fingerprint on-chain. Prototype with synthetic data.
       </p>
-      {/* Later: swap mockRegister for the helper in web/lib/contract.ts */}
-      <RegisterForm onSubmit={mockRegister} />
+      <RegisterForm onSubmit={register} />
     </div>
   );
 }

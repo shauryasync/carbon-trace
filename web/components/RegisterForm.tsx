@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { CheckCircle2, Loader2, Upload, AlertTriangle } from "lucide-react";
 import type { Credit, RegisterValues } from "./types";
-import { RegisterError, toRegisterError } from "./errors";
-import BlockedAlert from "./BlockedAlert";
 import { fireConfetti } from "./confetti";
 
 interface Props {
@@ -24,13 +22,11 @@ export default function RegisterForm({ onSubmit }: Props) {
 
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [failure, setFailure] = useState<RegisterError | null>(null);
   const [success, setSuccess] = useState<Credit | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    setFailure(null);
     setSuccess(null);
 
     const start = Number(startSerial);
@@ -56,7 +52,7 @@ export default function RegisterForm({ onSubmit }: Props) {
       setSuccess(credit);
       fireConfetti();
     } catch (err) {
-      setFailure(toRegisterError(err));
+      setFormError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -154,29 +150,6 @@ export default function RegisterForm({ onSubmit }: Props) {
         </div>
       )}
 
-      {failure?.kind === "overlap" && (
-        <BlockedAlert
-          error={failure}
-          attempted={{
-            projectId: projectId.trim(),
-            startSerial: Number(startSerial),
-            endSerial: Number(endSerial),
-          }}
-        />
-      )}
-
-      {failure && failure.kind !== "overlap" && (
-        <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-          <p className="font-semibold">
-            {failure.kind === "badRange"
-              ? "Invalid serial range"
-              : failure.kind === "rejected"
-              ? "Transaction cancelled"
-              : "Registration failed"}
-          </p>
-          <p className="mt-1">{failure.message}</p>
-        </div>
-      )}
     </div>
   );
 }
