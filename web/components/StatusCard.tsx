@@ -1,4 +1,5 @@
 import { BadgeCheck, CircleSlash, Flag, ExternalLink, UserCheck, Clock } from "lucide-react";
+import { explorerTx as etherscanTx } from "@/lib/contract";
 import { ZERO_ADDRESS, type Credit, type CreditStatus } from "./types";
 import VerifyQR from "./VerifyQR";
 
@@ -54,7 +55,7 @@ export default function StatusCard({ credit, serial }: { credit: Credit; serial:
         <div>
           <dt className="text-slate-500">Project</dt>
           <dd className="font-medium">
-            {credit.projectId} · vintage {credit.vintage}
+            {credit.projectId}{credit.vintage > 0 && ` · ${credit.vintage}`}
           </dd>
         </div>
         <div>
@@ -92,17 +93,19 @@ export default function StatusCard({ credit, serial }: { credit: Credit; serial:
           <dd className="break-all font-mono text-xs">{credit.evidenceHash}</dd>
         </div>
       </dl>
-                <div className="mt-6">
+      <div className="mt-6">
         <VerifyQR serial={serial} />
       </div>
-      <a
-        href={`https://sepolia.etherscan.io/tx/${credit.txHash}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:underline"
-      >
-        View transaction on Sepolia Etherscan <ExternalLink className="h-4 w-4" />
-      </a>
+      {credit.txHash && (
+        <a
+          href={etherscanTx(credit.txHash)}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-5 inline-flex items-center gap-1 text-sm text-emerald-700 underline"
+        >
+          View on Sepolia Etherscan <ExternalLink className="h-4 w-4" />
+        </a>
+      )}
     </div>
   );
 }

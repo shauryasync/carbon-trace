@@ -3,12 +3,11 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import VerifyForm from "@/components/VerifyForm";
-import { mockLookup } from "@/components/mockData";
+import { lookup } from "@/components/api";
 
 function VerifyContent() {
   const serial = useSearchParams().get("serial") ?? undefined;
-  // Later: swap mockLookup for the Backend API route in web/app/api
-  return <VerifyForm lookup={mockLookup} initialSerial={serial} />;
+  return <VerifyForm lookup={lookup} initialSerial={serial} />;
 }
 
 export default function VerifyPage() {

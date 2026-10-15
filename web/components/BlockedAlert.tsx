@@ -1,5 +1,8 @@
-import { ShieldAlert } from "lucide-react";
+import { ExternalLink, ShieldAlert } from "lucide-react";
+import { explorerTx as etherscanTx } from "@/lib/contract";
 import type { RegisterError } from "./errors";
+
+const shortHash = (hash: string) => `${hash.slice(0, 6)}…${hash.slice(-4)}`;
 
 interface Props {
   error: RegisterError;
@@ -69,6 +72,17 @@ export default function BlockedAlert({ error, attempted }: Props) {
             Contract message:{" "}
             <code className="rounded bg-white/70 px-1.5 py-0.5">{error.message}</code>
           </p>
+          {conflict?.txHash && (
+            <a
+              href={etherscanTx(conflict.txHash)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-1 text-emerald-700 underline"
+            >
+              See the original registration on Etherscan ({shortHash(conflict.txHash)})
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          )}
         </div>
       </div>
     </div>
