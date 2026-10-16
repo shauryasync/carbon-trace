@@ -45,11 +45,43 @@ export function readableError(e: any): string {
   return e?.reason || e?.shortMessage || e?.message || "Something went wrong.";
 }
 
+export type BatchMeta = { vintage: number };
+
+export type IndexPayload = {
+  batchId: number;
+  projectId: string;
+  vintage: number;
+  startSerial: number;
+  endSerial: number;
+  evidenceHash: string;
+  issuer: string;
+  txHash: string;
+  status: "issued";
+  auditor: null;
+  chainId: number;
+};
+
+// Sends the saved-on-chain batch to the backend. Never throws.
+export async function indexBatch(payload: IndexPayload) {
+  try {
+    const res = await fetch("/api/credits/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) return { indexed: false, indexError: await res.text() };
+    return { indexed: true, indexError: null };
+  } catch (e) {
+    return { indexed: false, indexError: readableError(e) };
+  }
+}
+
 export async function registerBatch(
   projectId: string,
   startSerial: number,
   endSerial: number,
   evidenceHash: string,
+  meta: BatchMeta,
 ) {
   const c = await writeContract();
   const tx = await c.registerBatch(
@@ -58,7 +90,8 @@ export async function registerBatch(
     endSerial,
     evidenceHash,
   );
-  const receipt = await tx.wait();
+  const receipt = await tx.wait(); // throws if the chain rejects it, so nothing below runs
+
   const log = receipt.logs
     .map((l: any) => {
       try {
@@ -68,7 +101,24 @@ export async function registerBatch(
       }
     })
     .find((p: any) => p?.name === "BatchRegistered");
-  return { txHash: tx.hash as string, batchId: Number(log?.args.batchId) };
+  const batchId = Number(log?.args.batchId);
+
+  const payload: IndexPayload = {
+    batchId,
+    projectId,
+    vintage: meta.vintage,
+    startSerial,
+    endSerial,
+    evidenceHash,
+    issuer: receipt.from,
+    txHash: tx.hash,
+    status: "issued",
+    auditor: null,
+    chainId: 11155111,
+  };
+
+  const { indexed, indexError } = await indexBatch(payload);
+  return { txHash: tx.hash as string, batchId, indexed, indexError, payload };
 }
 
 export async function getBatch(batchId: number): Promise<ChainBatch> {
