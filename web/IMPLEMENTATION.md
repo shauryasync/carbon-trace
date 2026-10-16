@@ -13,9 +13,34 @@ npm install
 npm run dev
 ```
 
+Create `web/.env.local` (never commit it) with your MongoDB connection string:
+
+```
+MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/carbontrace?retryWrites=true&w=majority
+```
+
+In MongoDB Atlas, open **Network Access** and allow your IP address (for a
+prototype, "Allow access from anywhere" is fine). Restart `npm run dev` after
+changing `.env.local`; Next.js only reads it on startup.
+
 The development server is usually available at `http://localhost:3000`. Replace
 that base URL with your deployed web application's URL when calling the API.
 All request and response bodies described below use JSON.
+
+## Testing the endpoints with Thunder Client
+
+Every example below can be tried in the Thunder Client VS Code extension:
+
+1. Click **New Request**.
+2. Choose the method (GET or POST) and paste the URL.
+3. For POST requests, open the **Body** tab, choose **JSON**, and paste the
+   request body. Thunder Client sets the `Content-Type` header for you.
+4. Click **Send** and read the status code and response on the right.
+
+If a POST returns `400`, the `problems` list in the response names the bad
+field. The most common causes are numbers wrapped in quotes (`"1000"` instead
+of `1000`), a hash that is not exactly `0x` plus 64 hex characters, or a
+missing `txHash` or `batchId`.
 
 ## Implementation files
 
@@ -24,18 +49,32 @@ The current API implementation consists of:
 | File | Purpose |
 | --- | --- |
 | `app/api/health/route.ts` | Health/status endpoint. |
-| `app/api/credits/route.ts` | Searches mock credit batches by project ID. |
-| `app/api/credits/[batchId]/route.ts` | Retrieves a mock batch by its batch ID. |
-| `app/api/credits/register/route.ts` | Validates proposed credit registration data and checks for serial overlap. |
-| `app/api/credits/checkOverlap/route.ts` | Checks a project's proposed serial range against mock batches. |
+| `app/api/credits/route.ts` | Finds indexed batches by serial number and/or project ID. |
+| `app/api/credits/[batchId]/route.ts` | Retrieves an indexed batch by its on-chain batch ID. |
+| `app/api/credits/register/route.ts` | Validates a registered batch, checks for serial overlap, and saves it to MongoDB. |
+| `app/api/credits/checkOverlap/route.ts` | Checks a project's proposed serial range against indexed batches. |
 | `app/api/review/route.ts` | Performs basic rule-based checks on evidence text. |
-| `lib/mockData.ts` | Defines the credit record types and development-only sample batches. |
-| `lib/overlap.ts` | Validates serial ranges and checks inclusive range overlap. |
+| `lib/mongo.ts` | Opens and caches the MongoDB connection (`connectMongo`). |
+| `lib/models/batch.ts` | Mongoose `Batch` model in the shared data format, plus `toCredit()`. |
+| `lib/overlap.ts` | Validates serial ranges and checks inclusive range overlap (`findOverlap`, `rangesOverlap`, `hasOverlap`). |
+| `lib/overlap.test.ts` | Unit tests for the overlap rule. |
+| `lib/mockData.ts` | Older development-only sample batches. No API route uses it any more. |
 
-The endpoint handlers and mock data are currently development implementations.
-They do not write to a database or submit blockchain transactions. The register
-endpoint explicitly returns `persisted: false`; overlap checks and credit
-lookups use only the in-memory sample data.
+## How the data fits together
+
+- **The blockchain is the source of truth** for registration and retirement.
+  MongoDB is only a fast search index and stores extra data such as `vintage`.
+- The expected flow is: the website registers the batch on-chain
+  (`web/lib/contract.ts`), then calls `POST /api/credits/register` with the
+  resulting `txHash` and `batchId` so the batch can be searched quickly.
+- Records use the shared data format: `projectId`, `vintage`, `startSerial`,
+  `endSerial`, `evidenceHash`, `issuer`, `status`, `txHash`, `auditor`. The API
+  also returns `batchId`, the on-chain batch ID (a number: 0, 1, 2...).
+- `projectId` is compared **exactly** (case-sensitive, no trimming of stored
+  values), matching the contract. `"kenya-001"` and `"KENYA-001"` are different
+  projects.
+- The same serial can exist in two different projects, so a serial lookup
+  returns a list.
 
 ## API routes
 
@@ -43,11 +82,7 @@ lookups use only the in-memory sample data.
 
 Returns a JSON status response indicating the service is reachable.
 
-Example:
-
-```bash
-curl http://localhost:3000/api/health
-```
+Thunder Client: **GET** `http://localhost:3000/api/health`
 
 Response (`200 OK`):
 
@@ -63,196 +98,220 @@ Response (`200 OK`):
 
 `timestamp` is generated when the request is handled.
 
-### `GET /api/credits?query=<projectId>`
+### `GET /api/credits`
 
-Searches the sample credit batches. The optional `query` parameter is matched
-case-insensitively as a substring of each batch's `projectId`. Omitting it (or
-passing an empty value) returns all sample batches.
+Finds indexed batches. All query parameters are optional and can be combined:
 
-Examples:
+| Parameter | Behavior |
+| --- | --- |
+| `serial` | Returns batches whose range contains this serial (inclusive). Must be a whole number >= 0. |
+| `projectId` | Exact, case-sensitive match on `projectId`. |
+| `query` | Case-insensitive substring match on `projectId`. Ignored if `projectId` is given. |
 
-```bash
-curl "http://localhost:3000/api/credits"
-curl "http://localhost:3000/api/credits?query=forest"
-```
+With no parameters, all batches are returned. Results are sorted by `batchId`
+and limited to 50.
+
+Thunder Client examples (all **GET**):
+
+- `http://localhost:3000/api/credits`
+- `http://localhost:3000/api/credits?serial=1500`
+- `http://localhost:3000/api/credits?serial=1500&projectId=KENYA-001`
+- `http://localhost:3000/api/credits?query=kenya`
 
 Response (`200 OK`):
 
 ```json
 {
-  "mode": "development",
   "count": 1,
   "credits": [
     {
-      "batchId": "mock-1",
-      "projectId": "FOREST-DEMO-001",
+      "batchId": 0,
+      "projectId": "KENYA-001",
       "vintage": 2025,
-      "startSerial": 1001,
-      "endSerial": 1100,
+      "startSerial": 1000,
+      "endSerial": 2000,
       "evidenceHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "issuer": "0x1111111111111111111111111111111111111111",
       "status": "issued",
       "txHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "auditor": ""
+      "auditor": "0x0000000000000000000000000000000000000000"
     }
   ]
 }
 ```
 
-The sample data currently contains `mock-1` (`FOREST-DEMO-001`) and `mock-2`
-(`SOLAR-DEMO-002`). An unmatched query returns `200 OK` with `count: 0` and an
-empty `credits` array.
+No match returns `200 OK` with `count: 0` and an empty `credits` array.
+`auditor` is the zero address until an approved auditor attests the batch.
+
+Errors:
+
+- `400 Bad Request` if `serial` is not a whole number >= 0.
+- `500 Internal Server Error` (`"Database error."`) if MongoDB cannot be
+  reached. See "Troubleshooting" below.
 
 ### `GET /api/credits/{batchId}`
 
-Retrieves one sample credit batch by its exact batch ID.
+Retrieves one indexed batch by its on-chain batch ID (a whole number).
 
-Example:
-
-```bash
-curl http://localhost:3000/api/credits/mock-1
-```
+Thunder Client: **GET** `http://localhost:3000/api/credits/0`
 
 Response (`200 OK`):
 
 ```json
 {
-  "mode": "development",
   "credit": {
-    "batchId": "mock-1",
-    "projectId": "FOREST-DEMO-001",
+    "batchId": 0,
+    "projectId": "KENYA-001",
     "vintage": 2025,
-    "startSerial": 1001,
-    "endSerial": 1100,
+    "startSerial": 1000,
+    "endSerial": 2000,
     "evidenceHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "issuer": "0x1111111111111111111111111111111111111111",
     "status": "issued",
     "txHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "auditor": ""
+    "auditor": "0x0000000000000000000000000000000000000000"
   }
 }
 ```
 
-If the batch ID is not present in the sample data, the endpoint returns `404
-Not Found`:
+Errors:
+
+- `400 Bad Request` if `batchId` is not a whole number >= 0.
+- `404 Not Found` if no indexed batch has that ID:
 
 ```json
 {
   "error": "Credit batch not found",
-  "batchId": "unknown"
+  "batchId": "99"
 }
 ```
 
+- `500 Internal Server Error` for database problems.
+
 ### `POST /api/credits/checkOverlap`
 
-Checks whether a proposed inclusive serial range overlaps a sample batch for
-the specified project. The `projectId` comparison is case-insensitive.
+Checks whether a proposed inclusive serial range overlaps an indexed batch for
+the **same** `projectId` (exact match, like the contract). This is read-only and
+saves nothing.
 
 Request:
 
 ```json
 {
-  "projectId": "FOREST-DEMO-001",
-  "startSerial": 1100,
-  "endSerial": 1200
+  "projectId": "KENYA-001",
+  "startSerial": 1500,
+  "endSerial": 1800
 }
 ```
 
-Example:
-
-```bash
-curl -X POST http://localhost:3000/api/credits/checkOverlap \
-  -H "Content-Type: application/json" \
-  -d "{\"projectId\":\"FOREST-DEMO-001\",\"startSerial\":1100,\"endSerial\":1200}"
-```
+Thunder Client: **POST** `http://localhost:3000/api/credits/checkOverlap` with
+the JSON body above.
 
 Response when the range overlaps (`200 OK`):
 
 ```json
 {
-  "mode": "development",
-  "projectId": "FOREST-DEMO-001",
-  "startSerial": 1100,
-  "endSerial": 1200,
+  "projectId": "KENYA-001",
+  "startSerial": 1500,
+  "endSerial": 1800,
   "overlap": true,
   "canRegister": false,
+  "conflict": {
+    "batchId": 0,
+    "projectId": "KENYA-001",
+    "vintage": 2025,
+    "startSerial": 1000,
+    "endSerial": 2000,
+    "evidenceHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "issuer": "0x1111111111111111111111111111111111111111",
+    "status": "issued",
+    "txHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "auditor": "0x0000000000000000000000000000000000000000"
+  },
   "message": "This serial range overlaps an existing batch."
 }
 ```
 
-When no overlap is found, `overlap` is `false`, `canRegister` is `true`, and
-the message says no overlap was found in the current mock data. Ranges are
-inclusive, so sharing an endpoint serial counts as an overlap.
+When no overlap is found, `overlap` is `false`, `canRegister` is `true`,
+`conflict` is `null`, and the message says no overlap was found in the indexed
+batches. Ranges are inclusive, so sharing an endpoint serial counts as an
+overlap.
 
 Errors:
 
-- `400 Bad Request` if JSON is invalid, a field is missing/invalid, or the
-  range is negative or has `startSerial > endSerial`.
-- Invalid JSON returns `{"error":"Invalid JSON request body."}`. Invalid fields
-  and ranges return a descriptive `error` string.
+- `400 Bad Request` if JSON is invalid, `projectId` is empty, or the range is
+  not `0 <= startSerial <= endSerial` with whole numbers.
+- `500 Internal Server Error` for database problems.
 
 ### `POST /api/credits/register`
 
-Validates a proposed batch and checks its serial range against the sample
-batches for the same project. This is a simulation only: it does not persist
-the batch or submit a blockchain transaction.
+Validates a batch that has been registered on-chain, checks its serial range
+against indexed batches for the same project, and saves it to MongoDB. It does
+**not** submit a blockchain transaction itself; the caller must register on-chain
+first and pass the resulting `txHash` and `batchId`.
 
 Request:
 
 ```json
 {
-  "projectId": "NEW-PROJECT-001",
-  "vintage": 2026,
-  "startSerial": 1,
-  "endSerial": 100,
+  "projectId": "KENYA-001",
+  "vintage": 2025,
+  "startSerial": 1000,
+  "endSerial": 2000,
   "evidenceHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "issuer": "0x1111111111111111111111111111111111111111"
+  "txHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "issuer": "0x1111111111111111111111111111111111111111",
+  "batchId": 0
 }
 ```
 
-Example:
+Thunder Client: **POST** `http://localhost:3000/api/credits/register` with the
+JSON body above.
 
-```bash
-curl -X POST http://localhost:3000/api/credits/register \
-  -H "Content-Type: application/json" \
-  -d "{\"projectId\":\"NEW-PROJECT-001\",\"vintage\":2026,\"startSerial\":1,\"endSerial\":100,\"evidenceHash\":\"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"issuer\":\"0x1111111111111111111111111111111111111111\"}"
-```
-
-Successful validation (`200 OK`):
+Successful registration (`201 Created`):
 
 ```json
 {
-  "mode": "development",
-  "simulated": true,
-  "persisted": false,
-  "proposedBatch": {
-    "projectId": "NEW-PROJECT-001",
-    "vintage": 2026,
-    "startSerial": 1,
-    "endSerial": 100,
+  "credit": {
+    "batchId": 0,
+    "projectId": "KENYA-001",
+    "vintage": 2025,
+    "startSerial": 1000,
+    "endSerial": 2000,
     "evidenceHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "issuer": "0x1111111111111111111111111111111111111111"
-  },
-  "transaction": {
-    "submitted": false,
-    "batchId": null,
-    "txHash": null
-  },
-  "message": "Validation passed. Real registration requires database and smart-contract integration."
+    "issuer": "0x1111111111111111111111111111111111111111",
+    "status": "issued",
+    "txHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "auditor": "0x0000000000000000000000000000000000000000"
+  }
 }
 ```
 
-Validation requires a non-empty `projectId`, safe-integer `vintage`,
-`startSerial`, and `endSerial`, a `0x`-prefixed 64-hex-character
-`evidenceHash`, and a `0x`-prefixed 40-hex-character `issuer`. The serial range
-must be non-negative with `startSerial <= endSerial`.
+New batches are saved with `status: "issued"` and the zero address as `auditor`.
+
+Validation requires a non-empty `projectId`; whole-number `vintage`,
+`startSerial`, `endSerial` and `batchId` (>= 0); a `0x`-prefixed
+64-hex-character `evidenceHash` and `txHash`; and a `0x`-prefixed
+40-hex-character `issuer`. The serial range must satisfy
+`0 <= startSerial <= endSerial`.
 
 Errors:
 
-- `400 Bad Request` for invalid JSON, missing/invalid fields, or an invalid
-  serial range.
-- `409 Conflict` when the serial range overlaps an existing sample batch for
-  that project. The response includes `canRegister: false`.
+- `400 Bad Request` for invalid JSON or invalid fields. Field problems return a
+  list:
+
+```json
+{
+  "error": "Invalid registration fields.",
+  "problems": ["startSerial must be a whole number (not a string)"]
+}
+```
+
+- `409 Conflict` when the serial range overlaps an indexed batch for the same
+  project. The response includes `canRegister: false` and the `conflict` batch.
+- `409 Conflict` (`"This batchId is already saved."`) when that `batchId` is
+  already indexed. Sending the same request twice returns this.
+- `500 Internal Server Error` for database problems.
 
 ### `POST /api/review`
 
@@ -270,13 +329,8 @@ Request:
 }
 ```
 
-Example:
-
-```bash
-curl -X POST http://localhost:3000/api/review \
-  -H "Content-Type: application/json" \
-  -d "{\"projectId\":\"FOREST-DEMO-001\",\"evidenceText\":\"The methodology describes monitoring and measurement in 2025. An independent audit verified the results.\"}"
-```
+Thunder Client: **POST** `http://localhost:3000/api/review` with the JSON body
+above.
 
 Response with all indicators present (`200 OK`):
 
@@ -301,14 +355,44 @@ Errors:
   not a non-empty string, or has the wrong type.
 - `413 Payload Too Large` if `evidenceText` exceeds 20,000 characters.
 
-## Development limitations
+## Running the overlap tests
 
-- All routes return development/mock behavior; there is no persistence,
-  on-chain transaction, or production carbon-credit verification in these
-  handlers.
-- `/api/credits` and `/api/credits/{batchId}` read only `mockCredits`.
-- Overlap checks use the current mock data and apply only to batches whose
-  project ID matches the submitted project ID.
+From inside `web/`:
+
+```bash
+npx tsx --test lib/overlap.test.ts
+```
+
+The tests cover the main cases: `1000-2000` vs `1500-1800` overlaps,
+`1000-2000` vs `2001-3000` does not, sharing an endpoint serial overlaps, the
+same serials in a different project are allowed, `projectId` is case-sensitive,
+and an invalid range throws.
+
+## Troubleshooting
+
+A `500` with `"Database error."` means the database step failed. The real reason
+is printed in the terminal running `npm run dev`. Common causes:
+
+- `MONGODB_URI is not set`: add it to `web/.env.local` and restart `npm run dev`.
+- Timeout or "IP not whitelisted": allow your IP in Atlas under Network Access.
+- `bad auth`: wrong username or password in the URI. URL-encode symbols such as
+  `@` in the password.
+- Import errors about `@/lib/models/batch`: the file name and every import must
+  use exactly the same capitalization.
+
+## Limitations
+
+- **MongoDB is an index, not the source of truth.** The register route trusts the
+  `txHash` and `batchId` it is given and does not check them against the chain.
+  Registration and retirement are only authoritative on-chain.
+- `status` and `auditor` in MongoDB are set when a batch is saved and are not
+  updated when credits are retired or an auditor attests. Pages that show
+  retirement or attestation should read it from the contract.
+- The contract retires one serial at a time, while `status` in MongoDB is stored
+  per batch.
+- Anyone can call `retire()` on the contract (no ownership check yet), and the
+  on-chain overlap loop only scales to a prototype.
 - `/api/review` uses keyword/year checks only. `approvalGranted` remains
   `false`, and `requiresHumanReview` remains `true`, even when no flags are
-  found.
+  found. It does not verify real-world carbon removal.
+- All data is a prototype with synthetic data on a testnet.
