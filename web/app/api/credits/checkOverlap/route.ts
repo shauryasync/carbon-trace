@@ -1,58 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mockCredits } from "@/lib/mockData";
-import { hasOverlap } from "@/lib/overlap";
+import { connectMongo } from "@/lib/mongo";
+import { BatchModel, toCredit } from "@/lib/models/batch";
+import { findOverlap } from "@/lib/overlap";
 
 export async function POST(request: NextRequest) {
-try {
-const body = await request.json();
-const { projectId, startSerial, endSerial } = body;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
+  }
 
-if (
-  typeof projectId !== "string" ||
-  !projectId.trim() ||
-  !Number.isSafeInteger(startSerial) ||
-  !Number.isSafeInteger(endSerial)
-) {
-  return NextResponse.json(
-    { error: "Provide projectId, startSerial and endSerial with valid values." },
-    { status: 400 },
-  );
-}
+  const { projectId, startSerial, endSerial } = body ?? {};
 
-if (startSerial < 0 || endSerial < startSerial) {
-  return NextResponse.json(
-    { error: "Invalid serial range: startSerial must be <= endSerial and non-negative." },
-    { status: 400 },
-  );
-}
+  if (
+    typeof projectId !== "string" ||
+    !projectId.trim() ||
+    !Number.isSafeInteger(startSerial) ||
+    !Number.isSafeInteger(endSerial) ||
+    startSerial < 0 ||
+    endSerial < startSerial
+  ) {
+    return NextResponse.json(
+      { error: "Provide projectId and a valid range: 0 <= startSerial <= endSerial." },
+      { status: 400 },
+    );
+  }
 
-const existingBatches = mockCredits.filter(
-  (credit) =>
-    credit.projectId.toLowerCase() === projectId.trim().toLowerCase(),
-);
+  try {
+    await connectMongo();
+    const sameProject = await BatchModel.find({ projectId }).lean();
+    const conflict = findOverlap({ projectId, startSerial, endSerial }, sameProject);
 
-const overlap = hasOverlap(
-  startSerial,
-  endSerial,
-  existingBatches,
-);
-
-return NextResponse.json({
-  mode: "development",
-  projectId: projectId.trim(),
-  startSerial,
-  endSerial,
-  overlap,
-  canRegister: !overlap,
-  message: overlap
-    ? "This serial range overlaps an existing batch."
-    : "No overlap found in the current mock data.",
-});
-
-} catch {
-return NextResponse.json(
-{ error: "Invalid JSON request body." },
-{ status: 400 },
-);
-}
+    return NextResponse.json({
+      projectId,
+      startSerial,
+      endSerial,
+      overlap: conflict !== null,
+      canRegister: conflict === null,
+      conflict: conflict ? toCredit(conflict) : null,
+      message: conflict
+        ? "This serial range overlaps an existing batch."
+        : "No overlap found in the indexed batches.",
+    });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "Database error." }, { status: 500 });
+  }
 }
