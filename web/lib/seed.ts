@@ -55,7 +55,10 @@ async function main() {
   await connectMongo();
 
   // Re-runnable: remove only the seeded rows, then insert them again.
-  await BatchModel.deleteMany({ batchId: { $in: seeds.map((s) => s.batchId) } });
+  const seedBatchIds = seeds
+    .map((seed) => seed.batchId)
+    .filter((batchId): batchId is number => batchId !== undefined);
+  await BatchModel.deleteMany({ batchId: { $in: seedBatchIds } });
   await BatchModel.insertMany(seeds);
   console.log(`Seeded ${seeds.length} batches.`);
 
