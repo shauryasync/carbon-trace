@@ -37,7 +37,7 @@ export default function StatusCard({ credit, serial }: { credit: Credit; serial:
   const attested = credit.auditor !== ZERO_ADDRESS;
 
   return (
-    <div className={`rounded-2xl border bg-white p-6 ${s.box}`}>
+    <div className={`rounded-2xl border bg-white p-6 text-slate-900 ${s.box}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-500">Serial</p>
