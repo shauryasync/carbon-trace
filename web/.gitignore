@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+lib/chain-check.ts
 
 # next.js
 /.next/
