@@ -61,7 +61,8 @@ export async function register(input: RegisterValues): Promise<Credit> {
       input.projectId,
       input.startSerial,
       input.endSerial,
-      evidenceHash
+      evidenceHash,
+      { vintage: input.vintage }
     );
     const found = (await findBySerial(input.startSerial, input.projectId).catch(
       () => null
