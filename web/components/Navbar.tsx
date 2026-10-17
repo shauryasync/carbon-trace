@@ -1,41 +1,52 @@
 "use client";
-
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Leaf } from "lucide-react";
-import WalletButton from "./WalletButton";
+import { useRouter } from "next/navigation";
+import { Leaf, LogOut } from "lucide-react";
+import { useSession, clearSession } from "./useSession";
 
-const links = [
-  { href: "/register", label: "Register" },
-  { href: "/verify", label: "Verify" },
-];
+const linkCls = "rounded-lg px-3 py-1.5 text-slate-700 hover:bg-emerald-50 hover:text-emerald-800";
 
 export default function Navbar() {
-  const pathname = usePathname();
+  const { address, ready, loggedIn } = useSession();
+  const router = useRouter();
+
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-emerald-800">
-          <Leaf className="h-5 w-5 text-emerald-600" />
-          Carbon Registry
-        </Link>
-        <div className="flex items-center gap-1">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                pathname === l.href
-                  ? "bg-emerald-50 text-emerald-800"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
-                    <WalletButton />
+    <>
+      <div className="bg-amber-100 py-1 text-center text-xs font-medium text-amber-900">
+        Prototype · synthetic data · Sepolia testnet only
+      </div>
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+          <Link href="/" className="flex items-center gap-2 font-semibold text-emerald-800">
+            <Leaf className="h-5 w-5" /> Carbon Registry
+          </Link>
+          <nav className="flex items-center gap-2 text-sm">
+            {ready && !loggedIn && (
+              <>
+                <Link href="/verify" className={linkCls}>Verify</Link>
+                <Link href="/signup" className={linkCls}>Sign up</Link>
+                <Link href="/login" className="rounded-lg bg-emerald-700 px-3 py-1.5 font-medium text-white hover:bg-emerald-800">Login</Link>
+              </>
+            )}
+            {ready && loggedIn && address && (
+              <>
+                <Link href="/register" className={linkCls}>Register</Link>
+                <Link href="/verify" className={linkCls}>Verify</Link>
+                <span title={address} className="flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1.5 font-medium text-emerald-800">
+                  <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                  {address.slice(0, 6)}…{address.slice(-4)}
+                </span>
+                <button
+                  onClick={() => { clearSession(); router.push("/"); }}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-slate-600 hover:bg-slate-100"
+                >
+                  <LogOut className="h-4 w-4" /> Logout
+                </button>
+              </>
+            )}
+          </nav>
         </div>
-      </nav>
-    </header>
+      </header>
+    </>
   );
 }
