@@ -104,3 +104,23 @@ export async function readTransfers(txHash: string) {
     timestamp: Number(args.timestamp),
   }));
 }
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+// Read-only checks against the chain for one serial. No wallet needed.
+export async function readSerialOnChain(batchId: number, serial: number, owner: string) {
+  const c = new Contract(ADDRESS, deployed.abi, new JsonRpcProvider(RPC_URL));
+  const [b, retired, holdings] = await Promise.all([
+    c.batches(batchId),
+    c.isRetired(batchId, serial),
+    c.getHoldings(batchId, owner),
+  ]);
+  return {
+    auditor: b.auditor === ZERO_ADDRESS ? null : (String(b.auditor) as string | null),
+    retired: Boolean(retired),
+    // true if the contract says this wallet currently holds this serial
+    ownerHoldsSerial: (holdings as any[]).some(
+      (h) => serial >= Number(h.start) && serial <= Number(h.end),
+    ),
+  };
+}
