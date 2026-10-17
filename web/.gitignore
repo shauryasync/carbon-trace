@@ -13,6 +13,7 @@
 # testing
 /coverage
 lib/chain-check.ts
+lib/auth-check.ts
 
 # next.js
 /.next/
