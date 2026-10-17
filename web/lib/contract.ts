@@ -159,3 +159,93 @@ export async function retireCredit(batchId: number, serial: number) {
 
 export const explorerTx = (hash: string) =>
   `https://sepolia.etherscan.io/tx/${hash}`;
+
+export async function createListing(
+  batchId: number,
+  holdingIndex: number,
+  quantity: number,
+  pricePerCreditWei: bigint,
+) {
+  const c = await writeContract();
+  const tx = await c.createListing(
+    batchId,
+    holdingIndex,
+    quantity,
+    pricePerCreditWei,
+  );
+  const receipt = await tx.wait();
+  const log = receipt.logs
+    .map((l: any) => {
+      try {
+        return c.interface.parseLog(l);
+      } catch {
+        return null;
+      }
+    })
+    .find((p: any) => p?.name === "ListingCreated");
+  return {
+    txHash: tx.hash as string,
+    listingId: Number(log?.args.listingId),
+    startSerial: Number(log?.args.start),
+    endSerial: Number(log?.args.end),
+  };
+}
+
+export async function buyListing(listingId: number) {
+  const reader = readContract();
+  const l = await reader.listings(listingId);
+  const total =
+    (BigInt(l.end) - BigInt(l.start) + 1n) * BigInt(l.pricePerCredit);
+
+  const c = await writeContract();
+  const tx = await c.buy(listingId, { value: total });
+  const receipt = await tx.wait();
+  const log = receipt.logs
+    .map((x: any) => {
+      try {
+        return c.interface.parseLog(x);
+      } catch {
+        return null;
+      }
+    })
+    .find((p: any) => p?.name === "CreditsTransferred");
+  return {
+    txHash: tx.hash as string,
+    blockNumber: Number(log?.args.blockNumber),
+    timestamp: Number(log?.args.timestamp),
+    batchId: Number(log?.args.batchId),
+    seller: log?.args.seller as string,
+    buyer: log?.args.buyer as string,
+    startSerial: Number(log?.args.start),
+    endSerial: Number(log?.args.end),
+    totalPriceWei: String(log?.args.totalPrice),
+  };
+}
+
+export async function getHoldings(batchId: number, who: string) {
+  const hs = await readContract().getHoldings(batchId, who);
+  return hs.map((h: any) => ({
+    startSerial: Number(h.start),
+    endSerial: Number(h.end),
+  }));
+}
+
+export async function getListing(listingId: number) {
+  const l = await readContract().listings(listingId);
+  return {
+    listingId,
+    batchId: Number(l.batchId),
+    seller: l.seller as string,
+    startSerial: Number(l.start),
+    endSerial: Number(l.end),
+    pricePerCreditWei: String(l.pricePerCredit),
+    active: l.active as boolean,
+  };
+}
+
+export async function cancelListing(listingId: number) {
+  const c = await writeContract();
+  const tx = await c.cancelListing(listingId);
+  await tx.wait();
+  return tx.hash as string;
+}
