@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import { BatchModel, ZERO_ADDRESS, toCredit } from "@/lib/models/batch";
-import { findOverlap } from "@/lib/overlap";
+import { readBatchRegistration, ChainError } from "@/lib/chain";
 
 const HASH = /^0x[a-fA-F0-9]{64}$/;
-const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 
+// POST { "txHash": "0x...", "vintage": 2025 }
+// Reads the registration from Sepolia and saves what the CHAIN says.
+// Anything else in the body (projectId, serials, issuer...) is ignored.
 export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let body: any;
@@ -15,67 +17,69 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
   }
 
-  const { projectId, vintage, startSerial, endSerial, evidenceHash, issuer, txHash, batchId } =
-    body ?? {};
+  const { txHash, vintage } = body ?? {};
 
   const problems: string[] = [];
-  if (typeof projectId !== "string" || !projectId.trim()) problems.push("projectId must be a non-empty string");
-  if (!Number.isSafeInteger(vintage)) problems.push("vintage must be a whole number (not a string)");
-  if (!Number.isSafeInteger(startSerial)) problems.push("startSerial must be a whole number (not a string)");
-  if (!Number.isSafeInteger(endSerial)) problems.push("endSerial must be a whole number (not a string)");
-  if (!Number.isSafeInteger(batchId) || batchId < 0) problems.push("batchId must be a whole number >= 0");
-  if (typeof evidenceHash !== "string" || !HASH.test(evidenceHash)) problems.push("evidenceHash must be 0x + 64 hex characters");
-  if (typeof txHash !== "string" || !HASH.test(txHash)) problems.push("txHash must be 0x + 64 hex characters");
-  if (typeof issuer !== "string" || !ADDRESS.test(issuer)) problems.push("issuer must be 0x + 40 hex characters");
-  if (
-    Number.isSafeInteger(startSerial) &&
-    Number.isSafeInteger(endSerial) &&
-    (startSerial < 0 || endSerial < startSerial)
-  ) {
-    problems.push("serial range must satisfy 0 <= startSerial <= endSerial");
+  if (typeof txHash !== "string" || !HASH.test(txHash)) {
+    problems.push("txHash must be 0x + 64 hex characters");
   }
-
-  if (startSerial < 0 || endSerial < startSerial) {
-    return NextResponse.json({ error: "Invalid serial range." }, { status: 400 });
+  if (!Number.isSafeInteger(vintage)) {
+    problems.push("vintage must be a whole number (not a string)");
+  }
+  if (problems.length > 0) {
+    return NextResponse.json({ error: "Invalid registration fields.", problems }, { status: 400 });
   }
 
   try {
+    const onChain = await readBatchRegistration(txHash); // validates on-chain first
     await connectMongo();
 
-    // Same rule as the contract: only batches with the EXACT same projectId count.
-    const sameProject = await BatchModel.find({ projectId }).lean();
-    const conflict = findOverlap({ projectId, startSerial, endSerial }, sameProject);
-    if (conflict) {
-      return NextResponse.json(
-        {
-          error: "Serial range overlaps an existing batch.",
-          canRegister: false,
-          conflict: toCredit(conflict),
+    const existing = await BatchModel.findOne({ batchId: onChain.batchId }).lean();
+
+    await BatchModel.updateOne(
+      { batchId: onChain.batchId },
+      {
+        // Chain facts always win, even over an older or fake record.
+        $set: {
+          projectId: onChain.projectId,
+          vintage,
+          startSerial: onChain.startSerial,
+          endSerial: onChain.endSerial,
+          evidenceHash: onChain.evidenceHash,
+          issuer: onChain.issuer,
+          txHash: onChain.txHash,
         },
-        { status: 409 },
-      );
-    }
+        // Only set on first insert, so a repeat never resets these.
+        $setOnInsert: { status: "issued", auditor: ZERO_ADDRESS },
+      },
+      { upsert: true },
+    );
 
-    const saved = await BatchModel.create({
-      batchId,
-      projectId,
-      vintage,
-      startSerial,
-      endSerial,
-      evidenceHash,
-      issuer,
-      txHash,
-      status: "issued",
-      auditor: ZERO_ADDRESS,
-    });
-
-    return NextResponse.json({ credit: toCredit(saved.toObject()) }, { status: 201 });
+    const saved = await BatchModel.findOne({ batchId: onChain.batchId }).lean();
+    return NextResponse.json(
+      {
+        source: "chain",
+        replacedStaleRecord: !!existing && existing.txHash !== onChain.txHash,
+        credit: toCredit(saved!),
+      },
+      { status: existing ? 200 : 201 },
+    );
   } catch (e) {
-    // 11000 = MongoDB "duplicate key": this batchId is already indexed.
+    if (e instanceof ChainError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
+    // 11000 = duplicate key: two requests saved the same batch at the same moment.
     if ((e as { code?: number })?.code === 11000) {
-      return NextResponse.json({ error: "This batchId is already saved." }, { status: 409 });
+      return NextResponse.json({ error: "This batch is being saved. Try again." }, { status: 409 });
     }
     console.error(e);
-    return NextResponse.json({ error: "Database error." }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Database error.",
+        // Only shown while developing.
+        detail: process.env.NODE_ENV !== "production" ? String((e as Error)?.message) : undefined,
+      },
+      { status: 500 },
+    );
   }
 }
