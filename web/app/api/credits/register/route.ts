@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAddress } from "ethers";
 import { connectMongo } from "@/lib/mongo";
 import { BatchModel, ZERO_ADDRESS, toCredit } from "@/lib/models/batch";
 import { readBatchRegistration, ChainError } from "@/lib/chain";
+import { getSessionAddress } from "@/lib/session";
 
 const HASH = /^0x[a-fA-F0-9]{64}$/;
 
-// POST { "txHash": "0x...", "vintage": 2025 }
+// POST { "txHash": "0x...", "vintage": 2025 }   (must be logged in)
 // Reads the registration from Sepolia and saves what the CHAIN says.
-// Anything else in the body (projectId, serials, issuer...) is ignored.
+// Only the wallet that issued the batch on-chain may index it.
 export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let body: any;
@@ -31,9 +33,25 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const onChain = await readBatchRegistration(txHash); // validates on-chain first
-    await connectMongo();
+    // Cheap check first: no login, no chain call.
+    const sessionAddress = await getSessionAddress();
+    if (!sessionAddress) {
+      return NextResponse.json(
+        { error: "Log in with your wallet first. Your batch is already on-chain; you can index it after logging in." },
+        { status: 401 },
+      );
+    }
 
+    const onChain = await readBatchRegistration(txHash); // validates on-chain
+
+    if (getAddress(onChain.issuer) !== getAddress(sessionAddress)) {
+      return NextResponse.json(
+        { error: "You are logged in with a different wallet than the one that issued this batch." },
+        { status: 403 },
+      );
+    }
+
+    await connectMongo();
     const existing = await BatchModel.findOne({ batchId: onChain.batchId }).lean();
 
     await BatchModel.updateOne(
@@ -76,7 +94,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Database error.",
-        // Only shown while developing.
         detail: process.env.NODE_ENV !== "production" ? String((e as Error)?.message) : undefined,
       },
       { status: 500 },

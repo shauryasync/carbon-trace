@@ -14,6 +14,7 @@
 /coverage
 lib/chain-check.ts
 lib/auth-check.ts
+lib/register-auth-check.ts
 
 # next.js
 /.next/
