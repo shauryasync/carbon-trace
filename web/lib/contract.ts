@@ -191,11 +191,25 @@ export async function createListing(
   };
 }
 
+export async function indexTransfer(txHash: string) {
+  try {
+    const res = await fetch("/api/transfers/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ txHash }),
+    });
+    if (!res.ok) return { indexed: false, indexError: await res.text() };
+    return { indexed: true, indexError: null };
+  } catch (e) {
+    return { indexed: false, indexError: readableError(e) };
+  }
+}
+
 export async function buyListing(listingId: number) {
   const reader = readContract();
   const l = await reader.listings(listingId);
   const total =
-    (BigInt(l.end) - BigInt(l.start) + 1n) * BigInt(l.pricePerCredit);
+    (BigInt(l.end) - BigInt(l.start) + BigInt(1)) * BigInt(l.pricePerCredit);
 
   const c = await writeContract();
   const tx = await c.buy(listingId, { value: total });
@@ -209,6 +223,7 @@ export async function buyListing(listingId: number) {
       }
     })
     .find((p: any) => p?.name === "CreditsTransferred");
+  const { indexed, indexError } = await indexTransfer(tx.hash);
   return {
     txHash: tx.hash as string,
     blockNumber: Number(log?.args.blockNumber),
@@ -219,6 +234,8 @@ export async function buyListing(listingId: number) {
     startSerial: Number(log?.args.start),
     endSerial: Number(log?.args.end),
     totalPriceWei: String(log?.args.totalPrice),
+    indexed,
+    indexError,
   };
 }
 
