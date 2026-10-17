@@ -9,15 +9,20 @@ From the repository root:
 
 ```bash
 cd web
+cp .env.example .env.local
 npm install
 npm run dev
 ```
 
-Create `web/.env.local` (never commit it) with your MongoDB connection string:
+Before starting the app, set your MongoDB connection string in `.env.local`:
 
 ```
 MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/carbontrace?retryWrites=true&w=majority
 ```
+
+Next.js automatically loads `web/.env.local` when you run `npm run dev`,
+`npm run build`, or `npm start`. Contract address and Sepolia RPC settings are
+optional and can be set there to override their defaults.
 
 In MongoDB Atlas, open **Network Access** and allow your IP address (for a
 prototype, "Allow access from anywhere" is fine). Restart `npm run dev` after
