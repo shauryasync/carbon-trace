@@ -22,3 +22,10 @@ export interface RegisterValues {
 }
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+export type ProfileRole = "Project developer" | "Auditor" | "Buyer / viewer" | "Other";
+
+export interface Profile {
+  displayName: string;
+  organisation: string;
+  role: ProfileRole;
+}
