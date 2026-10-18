@@ -15,6 +15,7 @@
 lib/chain-check.ts
 lib/auth-check.ts
 lib/register-auth-check.ts
+lib/db-check.ts
 
 # next.js
 /.next/
