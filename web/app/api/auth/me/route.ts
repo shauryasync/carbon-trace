@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import { CompanyModel, toCompany } from "@/lib/models/company";
-import { getSessionAddress } from "@/lib/session";
+import { SESSION_COOKIE, readSessionToken } from "@/lib/session";
 
 // GET -> the logged-in company, or 401
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const address = await getSessionAddress();
+    // Read the cookie from the request itself, so this route is always dynamic.
+    const address = readSessionToken(request.cookies.get(SESSION_COOKIE)?.value);
     if (!address) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
 
     await connectMongo();

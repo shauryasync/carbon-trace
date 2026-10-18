@@ -802,8 +802,11 @@ button, then clear your local `company` state.
 ### 4. Buy page
 
 1. Guard it as above, and read the marketplace straight from the chain with
-   `listingCount()`, `getListing(id)` and `getHoldings(batchId, wallet)` from
-   `lib/contract.ts`. No backend call is needed to list sales.
+   `getListing(id)` and `getHoldings(batchId, wallet)` from `lib/contract.ts`
+   (listings are numbered 0, 1, 2...). `contract.ts` does not export a listing
+   counter yet; ask the Chain owner to add one (a small `getListingCount()` that
+   calls the contract's `listingCount()`), or loop `getListing(id)` from 0 until
+   it fails. No backend call is needed to list sales.
 2. Call `buyListing(listingId)`. After the purchase is mined, the transaction
    must be synced to the backend with `POST /api/transfers/sync` and
    `{ txHash }`. The Chain owner adds this call to `buyListing` as
