@@ -11,11 +11,7 @@ export default function Navbar() {
   const router = useRouter();
 
   return (
-    <>
-      <div className="bg-amber-100 py-1 text-center text-xs font-medium text-amber-900">
-        Prototype · synthetic data · Sepolia testnet only
-      </div>
-      <header className="border-b border-slate-200 bg-white">
+    <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2 font-semibold text-emerald-800">
             <Leaf className="h-5 w-5" /> Carbon Registry
@@ -46,7 +42,6 @@ export default function Navbar() {
             )}
           </nav>
         </div>
-      </header>
-    </>
+    </header>
   );
 }

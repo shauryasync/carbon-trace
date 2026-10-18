@@ -9,15 +9,20 @@ From the repository root:
 
 ```bash
 cd web
+cp .env.example .env.local
 npm install
 npm run dev
 ```
 
-Create `web/.env.local` (never commit it) with your MongoDB connection string:
+Before starting the app, set your MongoDB connection string in `.env.local`:
 
 ```
 MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/carbontrace?retryWrites=true&w=majority
 ```
+
+Next.js automatically loads `web/.env.local` when you run `npm run dev`,
+`npm run build`, or `npm start`. Contract address and Sepolia RPC settings are
+optional and can be set there to override their defaults.
 
 In MongoDB Atlas, open **Network Access** and allow your IP address (for a
 prototype, "Allow access from anywhere" is fine). Restart `npm run dev` after
@@ -396,3 +401,41 @@ is printed in the terminal running `npm run dev`. Common causes:
   `false`, and `requiresHumanReview` remains `true`, even when no flags are
   found. It does not verify real-world carbon removal.
 - All data is a prototype with synthetic data on a testnet.
+
+### `POST /api/credits/register`
+
+Saves a batch that has been registered on-chain. The server reads the
+transaction from Sepolia and stores what the **chain** says, so the browser
+cannot supply fake batch data. Only `vintage`, which is not on-chain, comes
+from the request. Any other fields in the body are ignored.
+
+Request:
+
+```json
+{
+  "txHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "vintage": 2025
+}
+```
+
+Thunder Client: **POST** `http://localhost:3000/api/credits/register` with the
+JSON body above.
+
+Response: `201 Created` for a new batch or `200 OK` if it was already saved:
+
+```json
+{
+  "source": "chain",
+  "replacedStaleRecord": false,
+  "credit": { "batchId": 0, "projectId": "KENYA-001", "...": "..." }
+}
+```
+
+Errors:
+
+- `400 Bad Request` for invalid JSON or a bad `txHash`/`vintage` (see `problems`).
+- `404 Not Found` if the transaction is not on Sepolia yet (the server retries
+  for a few seconds first).
+- `422 Unprocessable Entity` if the transaction failed on-chain or did not emit
+  `BatchRegistered` from the Carbon-Trace contract.
+- `500 Internal Server Error` for database problems.

@@ -6,42 +6,67 @@ contract CarbonRegistry {
 
     struct Batch {
         string projectId;
-        uint256 start;       // First serial number (e.g., 1000)
-        uint256 end;         // Last serial number (e.g., 2000)
+        uint256 start;
+        uint256 end;
         bytes32 evidenceHash;
         address issuer;
-        address auditor;     // NEW: address(0) until an auditor attests
+        address auditor;
+    }
+
+    struct Range {
+        uint256 start;
+        uint256 end;
+    }
+
+    struct Listing {
+        uint256 batchId;
+        address seller;
+        uint256 start;
+        uint256 end;
+        uint256 pricePerCredit; // in wei
+        bool active;
     }
 
     Batch[] public batches;
-    mapping(uint256 => mapping(uint256 => bool)) public retired; // batchId => serial => isRetired
-    mapping(address => bool) public auditors;                    // NEW
+    Listing[] public listings;
+    mapping(uint256 => mapping(uint256 => bool)) public retired;
+    mapping(address => bool) public auditors;
+    mapping(uint256 => mapping(address => Range[])) private holdings; // batchId => owner => ranges
 
     event BatchRegistered(uint256 indexed batchId, string projectId, uint256 start, uint256 end);
     event CreditRetired(uint256 indexed batchId, uint256 serial, address by);
-    event AuditorAdded(address indexed auditor);                 // NEW
-    event BatchAttested(uint256 indexed batchId, address indexed auditor); // NEW
+    event AuditorAdded(address indexed auditor);
+    event BatchAttested(uint256 indexed batchId, address indexed auditor);
+    event ListingCreated(uint256 indexed listingId, uint256 indexed batchId, address indexed seller, uint256 start, uint256 end, uint256 pricePerCredit);
+    event ListingCancelled(uint256 indexed listingId);
+    event CreditsTransferred(
+        uint256 indexed listingId,
+        uint256 indexed batchId,
+        address indexed seller,
+        address buyer,
+        uint256 start,
+        uint256 end,
+        uint256 totalPrice,
+        uint256 blockNumber,
+        uint256 timestamp
+    );
 
     constructor() {
         owner = msg.sender;
     }
 
-    // NEW: only the owner can approve auditors
     function addAuditor(address a) external {
         require(msg.sender == owner, "Only owner");
         auditors[a] = true;
         emit AuditorAdded(a);
     }
 
-    // Enforces the "No Overlap" rule
     function registerBatch(string calldata projectId, uint256 start, uint256 end, bytes32 evidenceHash)
         external returns (uint256 id)
     {
         require(start <= end, "Bad range: start must be <= end");
 
         bytes32 pid = keccak256(bytes(projectId));
-
-        // Loop through existing batches to detect overlapping serials for the same project
         for (uint256 i = 0; i < batches.length; i++) {
             Batch storage b = batches[i];
             if (keccak256(bytes(b.projectId)) == pid && start <= b.end && end >= b.start) {
@@ -52,16 +77,123 @@ contract CarbonRegistry {
         batches.push(Batch(projectId, start, end, evidenceHash, msg.sender, address(0)));
         id = batches.length - 1;
 
+        // the issuer starts out holding the whole batch
+        _addRange(id, msg.sender, start, end);
+
         emit BatchRegistered(id, projectId, start, end);
     }
 
-    // NEW: an approved auditor vouches for a batch (once)
     function attest(uint256 batchId) external {
         require(auditors[msg.sender], "Not an auditor");
         Batch storage b = batches[batchId];
         require(b.auditor == address(0), "Already attested");
         b.auditor = msg.sender;
         emit BatchAttested(batchId, msg.sender);
+    }
+
+    // ---------- Selling and buying ----------
+
+    // The seller picks a holding and a quantity. The START serial is fixed to
+    // the front of that holding, so the seller can never pick a range from the middle.
+    function createListing(uint256 batchId, uint256 holdingIndex, uint256 quantity, uint256 pricePerCredit)
+        external returns (uint256 listingId)
+    {
+        Range[] storage hs = holdings[batchId][msg.sender];
+        require(holdingIndex < hs.length, "No such holding");
+        Range storage h = hs[holdingIndex];
+        require(quantity > 0 && quantity <= h.end - h.start + 1, "Bad quantity");
+
+        uint256 s = h.start;
+        uint256 e = s + quantity - 1;
+        listings.push(Listing(batchId, msg.sender, s, e, pricePerCredit, true));
+        listingId = listings.length - 1;
+
+        emit ListingCreated(listingId, batchId, msg.sender, s, e, pricePerCredit);
+    }
+
+    function cancelListing(uint256 listingId) external {
+        Listing storage l = listings[listingId];
+        require(l.seller == msg.sender, "Not your listing");
+        require(l.active, "Listing not active");
+        l.active = false;
+        emit ListingCancelled(listingId);
+    }
+
+    // One transaction: payment, seller debit and buyer credit all happen together.
+    // If ANY step fails, the whole transaction reverts and nothing changes.
+    function buy(uint256 listingId) external payable {
+        Listing storage l = listings[listingId];
+        require(l.active, "Listing not active");
+        require(msg.sender != l.seller, "Cannot buy your own listing");
+
+        uint256 total = (l.end - l.start + 1) * l.pricePerCredit;
+        require(msg.value == total, "Wrong payment amount");
+
+        // the seller must still hold this exact range at the front
+        Range[] storage hs = holdings[l.batchId][l.seller];
+        (bool found, uint256 idx) = _findByStart(hs, l.start);
+        require(found && hs[idx].end >= l.end, "Listing no longer valid");
+
+        // effects first (state changes before sending money)
+        l.active = false;
+        _removeFromFront(hs, idx, l.end);
+        _addRange(l.batchId, msg.sender, l.start, l.end);
+
+        // payment to the seller; failure reverts everything above
+        (bool ok, ) = payable(l.seller).call{value: total}("");
+        require(ok, "Payment to seller failed");
+
+        _emitTransfer(listingId, l, total);
+    }
+
+    function _emitTransfer(uint256 listingId, Listing storage l, uint256 total) internal {
+        emit CreditsTransferred(
+            listingId, l.batchId, l.seller, msg.sender,
+            l.start, l.end, total, block.number, block.timestamp
+        );
+    }
+
+    // ---------- Helpers ----------
+
+    function _findByStart(Range[] storage hs, uint256 start) internal view returns (bool, uint256) {
+        for (uint256 i = 0; i < hs.length; i++) {
+            if (hs[i].start == start) return (true, i);
+        }
+        return (false, 0);
+    }
+
+    // Removes serials start..soldEnd from the front of holding idx.
+    function _removeFromFront(Range[] storage hs, uint256 idx, uint256 soldEnd) internal {
+        if (hs[idx].end == soldEnd) {
+            hs[idx] = hs[hs.length - 1];
+            hs.pop();
+        } else {
+            hs[idx].start = soldEnd + 1;
+        }
+    }
+
+    // Adds a range to someone's holdings, merging with an adjacent one if possible.
+    function _addRange(uint256 batchId, address to, uint256 start, uint256 end) internal {
+        Range[] storage hs = holdings[batchId][to];
+        for (uint256 i = 0; i < hs.length; i++) {
+            if (hs[i].end + 1 == start) { hs[i].end = end; return; }
+            if (end + 1 == hs[i].start) { hs[i].start = start; return; }
+        }
+        hs.push(Range(start, end));
+    }
+
+    // ---------- Views ----------
+
+    function getHoldings(uint256 batchId, address who) external view returns (Range[] memory) {
+        return holdings[batchId][who];
+    }
+
+    function listingCount() external view returns (uint256) {
+        return listings.length;
+    }
+
+    function batchCount() external view returns (uint256) {
+        return batches.length;
     }
 
     function retire(uint256 batchId, uint256 serial) external {
@@ -72,10 +204,6 @@ contract CarbonRegistry {
         retired[batchId][serial] = true;
         emit CreditRetired(batchId, serial, msg.sender);
     }
-
-    function batchCount() external view returns (uint256) {
-    return batches.length;
-}
 
     function isRetired(uint256 batchId, uint256 serial) external view returns (bool) {
         return retired[batchId][serial];
