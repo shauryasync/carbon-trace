@@ -1,22 +1,26 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import confetti from "canvas-confetti";
 import { formatEther } from "ethers";
 import AuthGuard from "@/components/AuthGuard";
 import { fetchCompanies, friendlyIndexError, nameOf, sameAddr } from "@/components/format";
-import { buyListing, cancelListing, explorerTx, getListing, indexTransfer, readableError } from "@/lib/contract";
+import { buyListing, cancelListing, explorerTx, getListing, getListingCount, indexTransfer, readableError } from "@/lib/contract";
 import type { CompanyProfile } from "@/lib/auth-client";
 
 type Listing = Awaited<ReturnType<typeof getListing>>;
 
-// contract.ts has no listing counter, so ask for listing 0, 1, 2... until one fails.
-// (Ask the Chain owner for getListingCount() to make this faster and more reliable.)
 async function loadListings(): Promise<Listing[]> {
   const out: Listing[] = [];
-  for (let id = 0; id < 200; id++) {
-    try { out.push(await getListing(id)); } catch { break; }
-  }
+  const count = await getListingCount();
+  for (let id = 0; id < count; id++) out.push(await getListing(id));
   return out.filter((l) => l.active);
+}
+
+async function loadMarketplace() {
+  const listings = await loadListings();
+  const names = await fetchCompanies(listings.map((l) => l.seller));
+  return { listings, names };
 }
 
 function BuyList({ company }: { company: CompanyProfile }) {
@@ -26,29 +30,51 @@ function BuyList({ company }: { company: CompanyProfile }) {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [bought, setBought] = useState<{ txHash: string; indexed: boolean; indexError: string | null } | null>(null);
 
-  const refresh = useCallback(async () => {
-    const ls = await loadListings();
-    setListings(ls);
-    setNames(await fetchCompanies(ls.map((l) => l.seller)));
+  async function refresh() {
+    const result = await loadMarketplace();
+    setListings(result.listings);
+    setNames(result.names);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    loadMarketplace()
+      .then(({ listings: nextListings, names: nextNames }) => {
+        if (!cancelled) {
+          setListings(nextListings);
+          setNames(nextNames);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setError(readableError(e));
+      });
+    return () => { cancelled = true; };
   }, []);
-  useEffect(() => { refresh().catch((e) => setError(readableError(e))); }, [refresh]);
 
   async function buy(id: number) {
     setError(""); setBought(null); setBusyId(id);
     try {
-      const r = await buyListing(id); // also tries to sync the purchase to the backend
+      const r = await buyListing(id, company.address); // also tries to sync the purchase to the backend
       setBought({ txHash: r.txHash, indexed: r.indexed, indexError: r.indexError });
       confetti();
-      await refresh();
+      try {
+        await refresh();
+      } catch (e) {
+        setError(`Purchase succeeded, but the listings could not be refreshed: ${readableError(e)}`);
+      }
     } catch (e) {
       setError(readableError(e)); // e.g. "Listing no longer valid"
-      await refresh().catch(() => {}); // refresh the list either way
+      try {
+        await refresh();
+      } catch (refreshError) {
+        setError(`${readableError(e)} Listings could not be refreshed: ${readableError(refreshError)}`);
+      }
     } finally { setBusyId(null); }
   }
 
   async function cancel(id: number) {
     setError(""); setBusyId(id);
-    try { await cancelListing(id); await refresh(); }
+    try { await cancelListing(id, company.address); await refresh(); }
     catch (e) { setError(readableError(e)); }
     finally { setBusyId(null); }
   }
@@ -76,7 +102,11 @@ function BuyList({ company }: { company: CompanyProfile }) {
       )}
 
       {listings === null && !error && <p>Loading listings from the chain…</p>}
-      {listings?.length === 0 && <p>No active listings.</p>}
+      {listings?.length === 0 && (
+        <p className="rounded bg-stone-100 p-3 text-sm">
+          No active listings right now. If you hold credits, <Link className="font-medium underline" href="/sell">create a Sell listing</Link> so buyers can purchase them.
+        </p>
+      )}
       {listings?.map((l) => {
         const qty = l.endSerial - l.startSerial + 1;
         const price = BigInt(l.pricePerCreditWei);

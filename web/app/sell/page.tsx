@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { parseEther } from "ethers";
 import AuthGuard from "@/components/AuthGuard";
 import { createListing, explorerTx, getHoldings, readableError } from "@/lib/contract";
@@ -15,19 +16,44 @@ function SellForm({ company }: { company: CompanyProfile }) {
   const [priceEth, setPriceEth] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [done, setDone] = useState<{ txHash: string; listingId: number; startSerial: number; endSerial: number } | null>(null);
 
   async function load() {
     setError(""); setHoldings(null); setDone(null);
-    try { setHoldings(await getHoldings(Number(batchId), company.address)); setIdx(0); }
+    const id = batchId.trim();
+    if (!/^\d+$/.test(id) || !Number.isSafeInteger(Number(id))) {
+      setError("Enter a valid batch ID (a whole number, such as 0).");
+      return;
+    }
+    setLoading(true);
+    try { setHoldings(await getHoldings(Number(id), company.address)); setIdx(0); }
     catch (e) { setError(readableError(e)); }
+    finally { setLoading(false); }
   }
 
   async function sell() {
-    setError(""); setDone(null); setBusy(true);
+    setError(""); setDone(null);
+    const quantity = Number(qty);
+    const holding = holdings?.[idx];
+    if (!holding) return setError("Load a batch where you hold credits before creating a listing.");
+    if (!/^\d+$/.test(qty.trim()) || !Number.isSafeInteger(quantity) || quantity < 1) {
+      return setError("Enter a whole-number quantity greater than zero.");
+    }
+    if (quantity > holding.endSerial - holding.startSerial + 1) {
+      return setError("The quantity cannot exceed the credits in the selected range.");
+    }
+    let priceWei: bigint;
     try {
-      const priceWei = parseEther(priceEth); // ETH text -> wei (bigint)
-      setDone(await createListing(Number(batchId), idx, Number(qty), priceWei));
+      priceWei = parseEther(priceEth.trim());
+    } catch {
+      return setError("Enter a valid price in ETH with up to 18 decimal places.");
+    }
+    if (priceWei <= BigInt(0)) return setError("Price per credit must be greater than zero.");
+
+    setBusy(true);
+    try {
+      setDone(await createListing(Number(batchId), idx, quantity, priceWei, company.address));
     } catch (e) { setError(readableError(e)); }
     finally { setBusy(false); }
   }
@@ -36,11 +62,15 @@ function SellForm({ company }: { company: CompanyProfile }) {
   return (
     <div className="max-w-lg space-y-3">
       <div className="flex items-end gap-2">
-        <label className="flex-1 text-sm">Batch ID<input className={input} inputMode="numeric" value={batchId} onChange={(e) => setBatchId(e.target.value)} /></label>
-        <button onClick={load} className="rounded border border-stone-500 px-3 py-2">Show my credits</button>
+        <label className="flex-1 text-sm">Batch ID<input className={input} inputMode="numeric" value={batchId} onChange={(e) => { setBatchId(e.target.value); setHoldings(null); setDone(null); }} placeholder="For example, 0" /></label>
+        <button onClick={load} disabled={loading || busy} className="rounded border border-stone-500 px-3 py-2 disabled:opacity-50">{loading ? "Loading…" : "Show my credits"}</button>
       </div>
 
-      {holdings && holdings.length === 0 && <p className="text-sm">You hold no credits in this batch.</p>}
+      {holdings && holdings.length === 0 && (
+        <p className="text-sm">
+          You hold no credits in this batch. If you have not registered credits yet, <Link className="underline" href="/register">register a batch</Link> first, using this same wallet.
+        </p>
+      )}
       {holdings && holdings.length > 0 && (
         <>
           <label className="block text-sm">Which range?
@@ -49,8 +79,8 @@ function SellForm({ company }: { company: CompanyProfile }) {
             </select>
           </label>
           <label className="block text-sm">How many credits?<input className={input} inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
-          <label className="block text-sm">Price per credit (test ETH)<input className={input} value={priceEth} onChange={(e) => setPriceEth(e.target.value)} placeholder="0.0001" /></label>
-          <button onClick={sell} disabled={busy} className="rounded bg-emerald-800 px-4 py-2 text-white disabled:opacity-50">{busy ? "Waiting for MetaMask / chain…" : "Create listing"}</button>
+          <label className="block text-sm">Price per credit (test ETH)<input className={input} inputMode="decimal" value={priceEth} onChange={(e) => setPriceEth(e.target.value)} placeholder="0.0001" /></label>
+          <button onClick={sell} disabled={busy || loading} className="rounded bg-emerald-800 px-4 py-2 text-white disabled:opacity-50">{busy ? "Waiting for MetaMask / chain…" : "Create listing"}</button>
         </>
       )}
 

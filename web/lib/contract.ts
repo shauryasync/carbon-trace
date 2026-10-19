@@ -23,14 +23,43 @@ function readContract() {
 }
 
 // Write: needs MetaMask. Used by the Register page.
-async function writeContract() {
+async function writeContract(expectedAddress?: string) {
   const eth = (window as any).ethereum;
   if (!eth) throw new Error("MetaMask not found. Please install it.");
-  await eth.request({
-    method: "wallet_switchEthereumChain",
-    params: [{ chainId: SEPOLIA_CHAIN_ID }],
-  });
-  const signer = await new BrowserProvider(eth).getSigner();
+  const accounts: string[] = await eth.request({ method: "eth_requestAccounts" });
+  if (!accounts.length) throw new Error("No wallet account selected in MetaMask.");
+  try {
+    await eth.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: SEPOLIA_CHAIN_ID }],
+    });
+  } catch (e) {
+    if ((e as { code?: number }).code !== 4902) throw e;
+    await eth.request({
+      method: "wallet_addEthereumChain",
+      params: [{
+        chainId: SEPOLIA_CHAIN_ID,
+        chainName: "Sepolia",
+        nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
+        rpcUrls: [RPC_URL],
+        blockExplorerUrls: ["https://sepolia.etherscan.io"],
+      }],
+    });
+    await eth.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: SEPOLIA_CHAIN_ID }],
+    });
+  }
+  const provider = new BrowserProvider(eth);
+  const signer = await provider.getSigner();
+  if (expectedAddress) {
+    const actualAddress = await signer.getAddress();
+    if (actualAddress.toLowerCase() !== expectedAddress.toLowerCase()) {
+      throw new Error(
+        `MetaMask is using ${actualAddress}, but you are signed in as ${expectedAddress}. Sign in with the same wallet to trade.`,
+      );
+    }
+  }
   return new Contract(ADDRESS, deployed.abi, signer);
 }
 
@@ -41,7 +70,7 @@ export async function hashFile(file: File): Promise<string> {
 
 // Turn ugly errors into messages a human can read.
 export function readableError(e: any): string {
-  if (e?.code === "ACTION_REJECTED") return "You cancelled the transaction.";
+  if (e?.code === "ACTION_REJECTED" || e?.code === 4001) return "You cancelled the transaction.";
   return e?.reason || e?.shortMessage || e?.message || "Something went wrong.";
 }
 
@@ -165,8 +194,9 @@ export async function createListing(
   holdingIndex: number,
   quantity: number,
   pricePerCreditWei: bigint,
+  sellerAddress: string,
 ) {
-  const c = await writeContract();
+  const c = await writeContract(sellerAddress);
   const tx = await c.createListing(
     batchId,
     holdingIndex,
@@ -205,13 +235,13 @@ export async function indexTransfer(txHash: string) {
   }
 }
 
-export async function buyListing(listingId: number) {
+export async function buyListing(listingId: number, buyerAddress: string) {
   const reader = readContract();
   const l = await reader.listings(listingId);
   const total =
     (BigInt(l.end) - BigInt(l.start) + BigInt(1)) * BigInt(l.pricePerCredit);
 
-  const c = await writeContract();
+  const c = await writeContract(buyerAddress);
   const tx = await c.buy(listingId, { value: total });
   const receipt = await tx.wait();
   const log = receipt.logs
@@ -260,8 +290,12 @@ export async function getListing(listingId: number) {
   };
 }
 
-export async function cancelListing(listingId: number) {
-  const c = await writeContract();
+export async function getListingCount(): Promise<number> {
+  return Number(await readContract().listingCount());
+}
+
+export async function cancelListing(listingId: number, sellerAddress: string) {
+  const c = await writeContract(sellerAddress);
   const tx = await c.cancelListing(listingId);
   await tx.wait();
   return tx.hash as string;

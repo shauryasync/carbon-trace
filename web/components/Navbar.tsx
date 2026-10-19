@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Leaf, LogOut } from "lucide-react";
+import { Leaf, LogOut, ShoppingCart, Tag } from "lucide-react";
 import { useSession, clearSession } from "./useSession";
 
 const linkCls = "rounded-lg px-3 py-1.5 text-slate-700 hover:bg-emerald-50 hover:text-emerald-800";
@@ -17,6 +17,16 @@ export default function Navbar() {
             <Leaf className="h-5 w-5" /> Carbon Registry
           </Link>
           <nav className="flex items-center gap-2 text-sm">
+            {ready && (
+              <>
+                <Link href="/buy" className={`flex items-center gap-1 ${linkCls}`}>
+                  <ShoppingCart className="h-4 w-4" aria-hidden="true" /> Buy
+                </Link>
+                <Link href="/sell" className={`flex items-center gap-1 ${linkCls}`}>
+                  <Tag className="h-4 w-4" aria-hidden="true" /> Sell
+                </Link>
+              </>
+            )}
             {ready && !loggedIn && (
               <>
                 <Link href="/verify" className={linkCls}>Verify</Link>
