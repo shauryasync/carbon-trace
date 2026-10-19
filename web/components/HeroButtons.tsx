@@ -1,16 +1,16 @@
 "use client";
 import Link from "next/link";
 import { FilePlus2, SearchCheck } from "lucide-react";
-import { useSession } from "./useSession";
+import { useCompany } from "./useCompany";
 
 export default function HeroButtons() {
-  const { ready, loggedIn } = useSession();
+  const { company, checked } = useCompany();
 
   return (
     <div className="mt-8 flex min-h-[44px] flex-wrap gap-3">
-      {ready && (
+      {checked && (
         <>
-          {loggedIn ? (
+          {company ? (
             <Link href="/register" className="flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 font-semibold text-emerald-800 hover:bg-emerald-50">
               <FilePlus2 className="h-5 w-5" /> Register a batch
             </Link>
