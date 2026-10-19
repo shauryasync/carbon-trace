@@ -6,6 +6,7 @@ import { formatEther } from "ethers"; // pure number formatting, no provider
 import { explorerTx } from "@/lib/contract";
 import type { SerialMatch, SerialResult } from "@/components/types";
 import { fetchCompanies, fmtDate, httpMessage, nameOf } from "@/components/format";
+import { QRCodeSVG } from "qrcode.react";
 
 function Card({ m, names }: { m: SerialMatch; names: Record<string, string> }) {
   // Not verified if the chain could not be read or the status came from the index only.
@@ -98,7 +99,6 @@ function VerifyInner() {
 
   const go = () => router.push(`/verify?serial=${encodeURIComponent(input.trim())}`);
   // The QR encodes this page's URL with the serial in it.
-  // NOTE: uses the qrserver.com image API because no QR package is installed (see notes).
   const pageUrl = typeof window !== "undefined" && urlSerial ? `${window.location.origin}/verify?serial=${encodeURIComponent(urlSerial)}` : "";
 
   return (
@@ -125,9 +125,7 @@ function VerifyInner() {
           {data.matches.length > 1 && <p className="text-sm">This serial appears in {data.matches.length} different projects.</p>}
           {data.matches.map((m) => <Card key={m.batchId} m={m} names={names} />)}
           <div className="flex items-center gap-3 text-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img alt="QR code for this page" width={110} height={110}
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(pageUrl)}`} />
+            {pageUrl && <QRCodeSVG value={pageUrl} size={110} marginSize={2} level="M" />}
             <span>Scan to open this lookup.</span>
           </div>
         </div>
