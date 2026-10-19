@@ -18,7 +18,7 @@ function Dashboard({ company }: { company: CompanyProfile }) {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/transfers?address=${company.address}`);
+        const res = await fetch(`/api/transfers?address=${encodeURIComponent(company.address)}`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) return setError(httpMessage(res.status, data));
         const ts: Transfer[] = data.transfers;

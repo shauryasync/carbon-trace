@@ -805,15 +805,13 @@ button, then clear your local `company` state.
    `getListingCount()`, `getListing(id)`, and `getHoldings(batchId, wallet)`
    from `lib/contract.ts` (listings are numbered 0, 1, 2...). No backend call
    is needed to list sales.
-2. Call `buyListing(listingId)`. After the purchase is mined, the transaction
-   must be synced to the backend with `POST /api/transfers/sync` and
-   `{ txHash }`. The Chain owner adds this call to `buyListing` as
-   `indexTransfer(txHash)` and returns `indexed` and `indexError`, the same way
-   `registerBatch` does. Until that change is merged, call the route yourself
-   with the `txHash` from the result.
-3. If syncing fails, show "Purchase confirmed on-chain, history not updated yet"
-   and a **Retry** button. Retrying is safe: syncing the same transaction twice
-   does nothing.
+2. Call `buyListing(listingId, wallet)`. After the purchase is mined,
+   `buyListing` syncs it with `POST /api/transfers/sync` using
+   `indexTransfer(txHash)` and returns `indexed` and `indexError`.
+3. When `indexed` is true, show "Purchase complete". Otherwise show
+   "Purchase confirmed on-chain, history not updated yet" and a **Retry**
+   button that calls `indexTransfer(txHash)` again. Retrying is safe: syncing
+   the same transaction twice does nothing.
 4. A listing can become invalid after someone else buys the same serials. The
    contract then reverts with `"Listing no longer valid"`; show that message and
    refresh the list.
@@ -842,7 +840,7 @@ Show on each card:
 | Issuer | `issuer` (and its company name, if any) |
 | Auditor | `auditor`, or "not yet attested" when `null` |
 | Current owner | `owner`, with `ownerSource` as a small note |
-| Transaction history | `transfers` (newest first). Link each with `explorerTx(t.txHash)`. |
+| Transaction history | `GET /api/transfers?serial=<serial>` (newest first); show transfers for the matching batch and link each with `explorerTx(t.txHash)`. |
 | On-chain check | `ownershipConfirmedOnChain` and the `warning` text when present |
 
 Rules for the badges and notes:

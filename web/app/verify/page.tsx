@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatEther } from "ethers"; // pure number formatting, no provider
 import { explorerTx } from "@/lib/contract";
-import type { SerialMatch, SerialResult } from "@/components/types";
+import type { SerialMatch, SerialResult, Transfer } from "@/components/types";
 import { fetchCompanies, fmtDate, httpMessage, nameOf } from "@/components/format";
 
 function Card({ m, names }: { m: SerialMatch; names: Record<string, string> }) {
@@ -80,9 +80,23 @@ function VerifyInner() {
         const body = await res.json().catch(() => ({}));
         if (cancelled) return;
         if (!res.ok) { setError(httpMessage(res.status, body)); return; }
-        setData(body);
+        const result = body as SerialResult;
+        const historyRes = await fetch(`/api/transfers?serial=${encodeURIComponent(urlSerial)}`);
+        const historyBody = await historyRes.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!historyRes.ok) { setError(httpMessage(historyRes.status, historyBody)); return; }
+        if (!Array.isArray(historyBody.transfers)) {
+          setError("The transaction history response was invalid. Try again.");
+          return;
+        }
+        const history = historyBody.transfers as Transfer[];
+        const matches = result.matches.map((m) => ({
+          ...m,
+          transfers: history.filter((t) => t.batchId === m.batchId),
+        }));
+        setData({ ...result, matches });
         // ONE companies call for every address on the page.
-        const addrs = (body.matches as SerialMatch[]).flatMap((m) => [
+        const addrs = matches.flatMap((m) => [
           m.owner, m.issuer, ...(m.auditor ? [m.auditor] : []), ...m.transfers.flatMap((t) => [t.seller, t.buyer]),
         ]);
         const n = await fetchCompanies(addrs);

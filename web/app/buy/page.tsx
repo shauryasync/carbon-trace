@@ -28,6 +28,7 @@ function BuyList({ company }: { company: CompanyProfile }) {
   const [names, setNames] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [retryingSync, setRetryingSync] = useState(false);
   const [bought, setBought] = useState<{ txHash: string; indexed: boolean; indexError: string | null } | null>(null);
 
   async function refresh() {
@@ -81,21 +82,35 @@ function BuyList({ company }: { company: CompanyProfile }) {
 
   async function retrySync() {
     if (!bought) return;
-    const r = await indexTransfer(bought.txHash); // safe to repeat
-    setBought({ ...bought, indexed: r.indexed, indexError: r.indexError });
+    setRetryingSync(true);
+    setError("");
+    try {
+      const r = await indexTransfer(bought.txHash); // safe to repeat
+      setBought({ ...bought, indexed: r.indexed, indexError: r.indexError });
+    } catch (e) {
+      setError(readableError(e));
+    } finally {
+      setRetryingSync(false);
+    }
   }
 
   return (
     <div className="space-y-4">
       {error && <p className="rounded border border-red-700 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       {bought && (
-        <div className="rounded bg-emerald-50 p-3 text-sm">
-          <p>Purchase confirmed on-chain. <a className="underline" href={explorerTx(bought.txHash)} target="_blank" rel="noreferrer">View transaction</a></p>
-          {!bought.indexed && (
-            <div className="mt-2 rounded bg-amber-100 p-2">
+        <div className={bought.indexed ? "rounded bg-emerald-50 p-3 text-sm" : "rounded bg-amber-50 p-3 text-sm"}>
+          {bought.indexed ? (
+            <p>Purchase complete. <a className="underline" href={explorerTx(bought.txHash)} target="_blank" rel="noreferrer">View transaction</a></p>
+          ) : (
+            <div>
               <p>Purchase confirmed on-chain, history not updated yet.</p>
               {bought.indexError && <p className="text-xs">{friendlyIndexError(bought.indexError)}</p>}
-              <button onClick={retrySync} className="mt-1 rounded border border-stone-500 px-2 py-1">Retry</button>
+              <div className="mt-1 flex items-center gap-3">
+                <a className="underline" href={explorerTx(bought.txHash)} target="_blank" rel="noreferrer">View transaction</a>
+                <button onClick={retrySync} disabled={retryingSync} className="rounded border border-stone-500 px-2 py-1 disabled:opacity-50">
+                  {retryingSync ? "Retrying…" : "Retry"}
+                </button>
+              </div>
             </div>
           )}
         </div>
