@@ -30,8 +30,7 @@ export default function Home() {
           <h2 className="mt-3 font-semibold">What it does not do</h2>
           <p className="mt-1 text-sm text-slate-600">
             It does not verify that carbon was actually removed. That needs
-            auditors, satellites and sensors. The AI check only flags mismatches
-            for a human to review.
+            auditors, satellites and sensors.
           </p>
         </div>
       </section>
