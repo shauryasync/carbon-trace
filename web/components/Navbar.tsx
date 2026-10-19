@@ -37,6 +37,7 @@ export default function Navbar() {
             {ready && loggedIn && address && (
               <>
                 <Link href="/register" className={linkCls}>Register</Link>
+                <Link href="/dashboard" className={linkCls}>Dashboard</Link>
                 <Link href="/verify" className={linkCls}>Verify</Link>
                 <span title={address} className="flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1.5 font-medium text-emerald-800">
                   <span className="h-2 w-2 rounded-full bg-emerald-600" />
