@@ -8,10 +8,16 @@ import type { SerialMatch, SerialResult } from "@/components/types";
 import { fetchCompanies, fmtDate, httpMessage, nameOf } from "@/components/format";
 import { QRCodeSVG } from "qrcode.react";
 
-function Card({ m, names }: { m: SerialMatch; names: Record<string, string> }) {
+function Card({ m, names, serial }: { m: SerialMatch; names: Record<string, string>; serial: string }) {
   // Not verified if the chain could not be read or the status came from the index only.
   const unverified = !m.chain.checked || m.statusSource === "index (unverified)";
   const transfers = [...m.transfers].sort((a, b) => b.blockNumber - a.blockNumber); // newest first
+
+  // Each record gets its own QR: same serial, but pinned to this batch.
+  const recordUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/verify?serial=${encodeURIComponent(serial)}&batchId=${m.batchId}`
+      : "";
 
   return (
     <article className={`rounded-lg border bg-white p-4 ${m.status === "retired" ? "border-red-700" : "border-stone-300"}`}>
@@ -58,6 +64,13 @@ function Card({ m, names }: { m: SerialMatch; names: Record<string, string> }) {
           ))}
         </ul>
       )}
+
+      {recordUrl && (
+        <div className="mt-4 flex items-center gap-3 border-t border-stone-200 pt-4 text-sm">
+          <QRCodeSVG value={recordUrl} size={96} marginSize={2} level="M" />
+          <span>Scan to open this record (batch #{m.batchId}).</span>
+        </div>
+      )}
     </article>
   );
 }
@@ -65,6 +78,7 @@ function Card({ m, names }: { m: SerialMatch; names: Record<string, string> }) {
 function VerifyInner() {
   const router = useRouter();
   const urlSerial = useSearchParams().get("serial") ?? "";
+  const urlBatch = useSearchParams().get("batchId"); // null = show every match
   const [input, setInput] = useState(urlSerial);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -98,8 +112,11 @@ function VerifyInner() {
   }, [urlSerial]);
 
   const go = () => router.push(`/verify?serial=${encodeURIComponent(input.trim())}`);
-  // The QR encodes this page's URL with the serial in it.
-  const pageUrl = typeof window !== "undefined" && urlSerial ? `${window.location.origin}/verify?serial=${encodeURIComponent(urlSerial)}` : "";
+
+  // If the link names a batch, show only that record; otherwise show all matches.
+  const shown = data?.found
+    ? urlBatch ? data.matches.filter((m) => String(m.batchId) === urlBatch) : data.matches
+    : [];
 
   return (
     <main className="mx-auto max-w-2xl p-6">
@@ -122,12 +139,20 @@ function VerifyInner() {
       )}
       {data?.found && (
         <div className="space-y-4">
-          {data.matches.length > 1 && <p className="text-sm">This serial appears in {data.matches.length} different projects.</p>}
-          {data.matches.map((m) => <Card key={m.batchId} m={m} names={names} />)}
-          <div className="flex items-center gap-3 text-sm">
-            {pageUrl && <QRCodeSVG value={pageUrl} size={110} marginSize={2} level="M" />}
-            <span>Scan to open this lookup.</span>
-          </div>
+          {urlBatch ? (
+            <p className="text-sm">
+              Showing batch #{urlBatch} only.{" "}
+              <a className="underline" href={`/verify?serial=${encodeURIComponent(urlSerial)}`}>
+                Show all {data.matches.length} match{data.matches.length === 1 ? "" : "es"}
+              </a>
+            </p>
+          ) : (
+            data.matches.length > 1 && <p className="text-sm">This serial appears in {data.matches.length} different projects.</p>
+          )}
+          {urlBatch && shown.length === 0 && (
+            <p className="rounded bg-stone-100 p-3 text-sm">Batch #{urlBatch} does not contain serial {urlSerial} in the index.</p>
+          )}
+          {shown.map((m) => <Card key={m.batchId} m={m} names={names} serial={urlSerial} />)}
         </div>
       )}
     </main>
