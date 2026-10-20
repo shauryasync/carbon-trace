@@ -23,25 +23,30 @@ export default function LoginBox({ onLogin }: { onLogin: (c: CompanyProfile) => 
   }
 
   return (
-    <div className="max-w-md rounded-lg border border-stone-300 bg-white p-5">
-      <p className="mb-3 text-sm text-stone-700">
+    <section className="mx-auto max-w-lg rounded-xl border border-[#E4E4DC] bg-white p-6 text-[#0E1512] sm:p-8">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#0B6B4F]">Access authorization</p>
+      <h2 className="mt-2 font-serif text-3xl font-medium tracking-tight">Sign in to Carbon Registry</h2>
+      <p className="mb-5 mt-2 text-sm leading-6 text-[#5B6660]">
         Sign in by signing a free message in MetaMask. No gas, no transaction.
       </p>
       {needsName && (
-        <label className="mb-3 block text-sm">
+        <label className="mb-4 block text-xs font-semibold uppercase tracking-[0.1em] text-[#3F4944]">
           Company name
-          <input className="mt-1 w-full rounded border border-stone-400 p-2" value={name}
+          <input className="mt-1 min-h-11 w-full rounded-lg border border-[#E4E4DC] bg-[#F2F2EC] px-3 py-2 text-sm font-normal normal-case tracking-normal text-[#0E1512] focus:border-[#0B6B4F] focus:outline-none focus:ring-2 focus:ring-[#0B6B4F]/20" value={name}
             onChange={(e) => setName(e.target.value)} placeholder="Example Carbon Co" />
-          <span className="text-xs text-stone-600">
+          <span className="mt-1 block text-xs font-normal normal-case tracking-normal text-[#8A6D1D]">
             This name will be public and is self-declared (we do not verify it).
           </span>
         </label>
       )}
       <button onClick={go} disabled={busy}
-        className="rounded bg-emerald-800 px-4 py-2 text-white disabled:opacity-50">
+        className="min-h-11 w-full rounded-lg bg-[#0B6B4F] px-4 py-3 font-medium text-white transition-colors hover:bg-[#00513A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B6B4F] disabled:opacity-50">
         {busy ? "Waiting for MetaMask…" : "Sign in with wallet"}
       </button>
-      {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
-    </div>
+      {error && <p className="mt-3 rounded-md border border-[#B42318]/25 bg-[#FDECEA] p-3 text-sm text-[#B42318]">{error}</p>}
+      <p className="mt-5 border-t border-[#E4E4DC] pt-4 text-xs leading-5 text-[#5B6660]">
+        Prototype sign-in: entity names are self-declared and not verified.
+      </p>
+    </section>
   );
 }
