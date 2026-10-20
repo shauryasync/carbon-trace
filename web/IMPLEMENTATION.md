@@ -3,7 +3,7 @@
 This document describes the current web API implementation, the files it uses,
 how to call each endpoint, and how the frontend should work with them.
 
-Carbon-Trace is a prototype on the Sepolia testnet with synthetic demo data.
+Carbon Trace is a prototype on the Sepolia testnet with synthetic demo data.
 It makes credit records unique, tamper-proof and publicly traceable. It does
 **not** verify real-world carbon removal.
 
@@ -118,6 +118,11 @@ scripts in "Helper scripts" below for those.
 - The contract keeps ownership as **ranges per wallet**, so it cannot answer
   "who owns serial X?" by itself. The backend answers it from the saved transfer
   history, then cross-checks the result against the contract.
+- Marketplace purchases are checked against every range the buyer currently
+  holds. The app checks before opening MetaMask, and the updated contract also
+  enforces the rule on-chain. Existing deployments are immutable and need a
+  redeployment for the contract-level check; existing overlapping holdings are
+  not changed automatically.
 - **Owner rule:** the owner of serial X in batch B is the buyer of the most
   recent transfer whose range contains X. If no transfer contains it, the owner
   is the batch's issuer.
@@ -388,7 +393,7 @@ Errors:
   for a few seconds first).
 - `409 Conflict` if two requests saved the same batch at the same moment. Retry.
 - `422 Unprocessable Entity` if the transaction failed on-chain or did not emit
-  `BatchRegistered` from the Carbon-Trace contract.
+  `BatchRegistered` from the Carbon Trace contract.
 - `500 Internal Server Error` for database problems.
 
 Overlapping ranges are not checked here: the contract itself rejects a
@@ -442,7 +447,7 @@ Errors:
   characters.
 - `404 Not Found` if the transaction is not on Sepolia yet.
 - `422 Unprocessable Entity` if the transaction failed on-chain or contains no
-  `CreditsTransferred` event from the Carbon-Trace contract.
+  `CreditsTransferred` event from the Carbon Trace contract.
 - `500 Internal Server Error` (`"Sync failed."`).
 
 ### `GET /api/transfers`

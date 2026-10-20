@@ -25,7 +25,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="mt-6 border-t border-[#E4E4DC] pt-4 text-[11px] tracking-wide">
-          © 2025 Carbon Registry. Self-declared corporate entries require cryptographic attestations.
+          © 2025 Carbon Trace. Self-declared corporate entries require cryptographic attestations.
         </div>
       </div>
     </footer>

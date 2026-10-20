@@ -111,7 +111,7 @@ export default function AuthPanel({ mode }: { mode: "signup" | "login" }) {
         {mode === "signup" ? (
           <>Already have a profile? <Link href="/login" className="font-medium text-[#0B6B4F] underline underline-offset-2">Log in</Link></>
         ) : (
-          <>New to Carbon Registry? <Link href="/signup" className="font-medium text-[#0B6B4F] underline underline-offset-2">Sign up →</Link></>
+          <>New to Carbon Trace? <Link href="/signup" className="font-medium text-[#0B6B4F] underline underline-offset-2">Sign up →</Link></>
         )}
       </p>
     </section>

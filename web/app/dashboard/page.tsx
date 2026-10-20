@@ -6,6 +6,7 @@ import { fetchCompanies, fmtDate, httpMessage, nameOf, sameAddr } from "@/compon
 import type { Transfer } from "@/components/types";
 import { explorerTx, getHoldings } from "@/lib/contract";
 import type { CompanyProfile } from "@/lib/auth-client";
+import { rangesOverlap } from "@/lib/overlap";
 
 type Held = { batchId: number; startSerial: number; endSerial: number };
 
@@ -40,6 +41,17 @@ function Dashboard({ company }: { company: CompanyProfile }) {
     })();
   }, [company.address]);
 
+  const overlappingHoldings = held?.flatMap((holding, index) =>
+    held.slice(index + 1)
+      .filter((other) => rangesOverlap(holding.startSerial, holding.endSerial, other.startSerial, other.endSerial))
+      .map((other) => ({
+        startSerial: Math.max(holding.startSerial, other.startSerial),
+        endSerial: Math.min(holding.endSerial, other.endSerial),
+        firstBatch: holding.batchId,
+        secondBatch: other.batchId,
+      })),
+  ) ?? [];
+
   return (
     <div className="space-y-10 text-sm">
       {error && <p className="rounded-lg border border-[#B42318]/30 bg-[#FDECEA] p-4 text-[#B42318]" role="alert">{error}</p>}
@@ -56,21 +68,28 @@ function Dashboard({ company }: { company: CompanyProfile }) {
         ) : held.length === 0 ? (
           <p className="rounded-lg border border-[#E4E4DC] bg-white p-4 text-sm text-[#5B6660]">No holdings found.</p>
         ) : (
-          <ul className="space-y-3">{held.map((h, i) => (
-            <li key={i} className="rounded-xl border border-[#E4E4DC] bg-white p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="font-serif text-lg font-medium text-[#0E1512]">Batch #{h.batchId}</p>
-                  <p className="mt-1 font-mono text-sm text-[#3F4944]">Serials {h.startSerial}–{h.endSerial}</p>
+          <>
+            {overlappingHoldings.length > 0 && (
+              <p className="mb-3 rounded-lg border border-[#B42318]/30 bg-[#FDECEA] p-4 text-sm text-[#B42318]" role="alert">
+                Existing chain holdings overlap at serials {overlappingHoldings[0].startSerial}–{overlappingHoldings[0].endSerial} in batches #{overlappingHoldings[0].firstBatch} and #{overlappingHoldings[0].secondBatch}. New purchases with overlapping serials are blocked; existing holdings are unchanged.
+              </p>
+            )}
+            <ul className="space-y-3">{held.map((h, i) => (
+              <li key={i} className="rounded-xl border border-[#E4E4DC] bg-white p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-serif text-lg font-medium text-[#0E1512]">Batch #{h.batchId}</p>
+                    <p className="mt-1 font-mono text-sm text-[#3F4944]">Serials {h.startSerial}–{h.endSerial}</p>
+                  </div>
+                  <span className="rounded-full bg-[#E3F1EB] px-3 py-1 text-xs font-medium text-[#0B6B4F]">
+                    {h.endSerial - h.startSerial + 1} credits
+                  </span>
                 </div>
-                <span className="rounded-full bg-[#E3F1EB] px-3 py-1 text-xs font-medium text-[#0B6B4F]">
-                  {h.endSerial - h.startSerial + 1} credits
-                </span>
-              </div>
-              <div className="mt-4 h-2 rounded-full bg-[#E3F1EB]" />
-              <p className="mt-2 text-xs text-[#5B6660]">Current holding · read from the chain</p>
-            </li>
-          ))}</ul>
+                <div className="mt-4 h-2 rounded-full bg-[#E3F1EB]" />
+                <p className="mt-2 text-xs text-[#5B6660]">Current holding · read from the chain</p>
+              </li>
+            ))}</ul>
+          </>
         )}
       </section>
       <section>

@@ -62,7 +62,7 @@ export async function readBatchRegistration(txHash: string) {
   const { receipt, provider } = await getReceipt(txHash);
   const events = ourEvents(receipt, "BatchRegistered");
   if (events.length === 0) {
-    throw new ChainError("No BatchRegistered event from the Carbon-Trace contract in this transaction.", 422);
+    throw new ChainError("No BatchRegistered event from the Carbon Trace contract in this transaction.", 422);
   }
   const { args } = events[0];
   const batchId = Number(args.batchId);
@@ -88,7 +88,7 @@ export async function readTransfers(txHash: string) {
   const { receipt } = await getReceipt(txHash);
   const events = ourEvents(receipt, "CreditsTransferred");
   if (events.length === 0) {
-    throw new ChainError("No CreditsTransferred event from the Carbon-Trace contract in this transaction.", 422);
+    throw new ChainError("No CreditsTransferred event from the Carbon Trace contract in this transaction.", 422);
   }
   return events.map(({ args, index }) => ({
     txHash,
