@@ -25,7 +25,7 @@ export default function LoginBox({ onLogin }: { onLogin: (c: CompanyProfile) => 
   return (
     <section className="mx-auto max-w-lg rounded-xl border border-[#E4E4DC] bg-white p-6 text-[#0E1512] sm:p-8">
       <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#0B6B4F]">Access authorization</p>
-      <h2 className="mt-2 font-serif text-3xl font-medium tracking-tight">Sign in to Carbon Registry</h2>
+      <h2 className="mt-2 font-serif text-3xl font-medium tracking-tight">Sign in to Carbon Trace</h2>
       <p className="mb-5 mt-2 text-sm leading-6 text-[#5B6660]">
         Sign in by signing a free message in MetaMask. No gas, no transaction.
       </p>

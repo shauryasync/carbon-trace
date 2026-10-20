@@ -3,7 +3,7 @@
 This document describes the current web API implementation, the files it uses,
 how to call each endpoint, and how the frontend should work with them.
 
-Carbon-Trace is a prototype on the Sepolia testnet with synthetic demo data.
+Carbon Trace is a prototype on the Sepolia testnet with synthetic demo data.
 It makes credit records unique, tamper-proof and publicly traceable. It does
 **not** verify real-world carbon removal.
 
@@ -388,7 +388,7 @@ Errors:
   for a few seconds first).
 - `409 Conflict` if two requests saved the same batch at the same moment. Retry.
 - `422 Unprocessable Entity` if the transaction failed on-chain or did not emit
-  `BatchRegistered` from the Carbon-Trace contract.
+  `BatchRegistered` from the Carbon Trace contract.
 - `500 Internal Server Error` for database problems.
 
 Overlapping ranges are not checked here: the contract itself rejects a
@@ -442,7 +442,7 @@ Errors:
   characters.
 - `404 Not Found` if the transaction is not on Sepolia yet.
 - `422 Unprocessable Entity` if the transaction failed on-chain or contains no
-  `CreditsTransferred` event from the Carbon-Trace contract.
+  `CreditsTransferred` event from the Carbon Trace contract.
 - `500 Internal Server Error` (`"Sync failed."`).
 
 ### `GET /api/transfers`

@@ -7,7 +7,7 @@ import Footer from "@/components/Footer";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Carbon Registry (Prototype)",
+  title: "Carbon Trace (Prototype)",
   description: "Unique, tamper-proof, publicly traceable carbon credit records.",
 };
 

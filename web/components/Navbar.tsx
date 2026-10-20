@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, Menu, ShoppingCart, Tag, X } from "lucide-react";
@@ -17,9 +18,15 @@ export default function Navbar() {
   return (
     <header className="border-b border-[#E4E4DC] bg-white">
       <div className="mx-auto flex max-w-[1120px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 font-serif text-xl font-semibold tracking-tight text-[#0E1512]">
-          <span aria-hidden="true" className="h-7 w-7 shrink-0 bg-[url('/carbon-registry-mark.svg')] bg-contain bg-center bg-no-repeat" />
-          Carbon Registry
+        <Link href="/" aria-label="Carbon Trace home" className="flex shrink-0 items-center">
+          <Image
+            src="/carbon-trace-logo.png"
+            alt="Carbon Trace"
+            width={196}
+            height={95}
+            priority
+            className="h-auto w-[156px] sm:w-[196px]"
+          />
         </Link>
         <button
           type="button"
