@@ -169,6 +169,6 @@ npm run build
 
 ## 👥 Contributors
 
-- Satyam
-- Shaurya
-- Lalit
+- [Lalit](https://github.com/luckisalive)
+- [Satyam](https://github.com/satyam3691216)
+- [Shaurya](https://github.com/shauryasync)
