@@ -99,7 +99,7 @@ export default function SellPage() {
   return (
     <main className="mx-auto max-w-2xl p-6">
       <h1 className="mb-1 text-2xl font-semibold">Sell credits</h1>
-      <p className="mb-4 text-sm text-stone-700">Prototype on the Sepolia testnet. Prices are in test ETH with no real value. Known limitation: a retired credit can still be listed and sold.</p>
+      <p className="mb-4 text-sm text-stone-700">Prototype on the Sepolia testnet. Prices are in test ETH with no real value.</p>
       <AuthGuard>{(c) => <SellForm company={c} />}</AuthGuard>
     </main>
   );
