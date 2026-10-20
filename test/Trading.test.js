@@ -35,6 +35,36 @@ describe("Trading (atomic buy/sell)", function () {
     expect(range(b[0])).to.deep.equal([1001, 1500]);
   });
 
+  it("blocks buying serials that overlap another batch already held", async function () {
+    const { registry, A, B } = await loadFixture(setup);
+    await registry.connect(A).registerBatch("P2", 1200, 1800, ethers.id("other.pdf"));
+
+    await registry.connect(A).createListing(0, 0, 500, PRICE);
+    await registry.connect(B).buy(0, { value: 500n * PRICE });
+    await registry.connect(A).createListing(1, 0, 601, PRICE);
+
+    await expect(
+      registry.connect(B).buy(1, { value: 601n * PRICE }),
+    ).to.be.revertedWith("Buyer already holds overlapping serials");
+
+    expect((await registry.getHoldings(1, B.address)).length).to.equal(0);
+    expect((await registry.listings(1)).active).to.equal(true);
+  });
+
+  it("allows buying a non-overlapping range from another batch", async function () {
+    const { registry, A, B } = await loadFixture(setup);
+    await registry.connect(A).registerBatch("P2", 2001, 2500, ethers.id("other.pdf"));
+
+    await registry.connect(A).createListing(0, 0, 500, PRICE);
+    await registry.connect(B).buy(0, { value: 500n * PRICE });
+    await registry.connect(A).createListing(1, 0, 500, PRICE);
+
+    await expect(
+      registry.connect(B).buy(1, { value: 500n * PRICE }),
+    ).to.not.be.reverted;
+    expect((await registry.getHoldings(1, B.address)).length).to.equal(1);
+  });
+
   it("emits an event with block details", async function () {
     const { registry, A, B } = await loadFixture(setup);
     await registry.connect(A).createListing(0, 0, 500, PRICE);

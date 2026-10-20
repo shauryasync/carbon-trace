@@ -32,6 +32,8 @@ contract CarbonRegistry {
     mapping(uint256 => mapping(uint256 => bool)) public retired;
     mapping(address => bool) public auditors;
     mapping(uint256 => mapping(address => Range[])) private holdings; // batchId => owner => ranges
+    mapping(address => uint256[]) private heldBatchIds;
+    mapping(address => mapping(uint256 => uint256)) private heldBatchIndexPlusOne;
 
     event BatchRegistered(uint256 indexed batchId, string projectId, uint256 start, uint256 end);
     event CreditRetired(uint256 indexed batchId, uint256 serial, address by);
@@ -128,6 +130,10 @@ contract CarbonRegistry {
 
         uint256 total = (l.end - l.start + 1) * l.pricePerCredit;
         require(msg.value == total, "Wrong payment amount");
+        require(
+            !_hasOverlappingHolding(msg.sender, l.start, l.end),
+            "Buyer already holds overlapping serials"
+        );
 
         // the seller must still hold this exact range at the front
         Range[] storage hs = holdings[l.batchId][l.seller];
@@ -136,7 +142,7 @@ contract CarbonRegistry {
 
         // effects first (state changes before sending money)
         l.active = false;
-        _removeFromFront(hs, idx, l.end);
+        _removeFromFront(l.batchId, l.seller, idx, l.end);
         _addRange(l.batchId, msg.sender, l.start, l.end);
 
         // payment to the seller; failure reverts everything above
@@ -162,24 +168,57 @@ contract CarbonRegistry {
         return (false, 0);
     }
 
+    function _hasOverlappingHolding(address who, uint256 start, uint256 end) internal view returns (bool) {
+        uint256[] storage batchIds = heldBatchIds[who];
+        for (uint256 i = 0; i < batchIds.length; i++) {
+            Range[] storage hs = holdings[batchIds[i]][who];
+            for (uint256 j = 0; j < hs.length; j++) {
+                if (start <= hs[j].end && end >= hs[j].start) return true;
+            }
+        }
+        return false;
+    }
+
     // Removes serials start..soldEnd from the front of holding idx.
-    function _removeFromFront(Range[] storage hs, uint256 idx, uint256 soldEnd) internal {
+    function _removeFromFront(uint256 batchId, address holder, uint256 idx, uint256 soldEnd) internal {
+        Range[] storage hs = holdings[batchId][holder];
         if (hs[idx].end == soldEnd) {
             hs[idx] = hs[hs.length - 1];
             hs.pop();
         } else {
             hs[idx].start = soldEnd + 1;
         }
+        if (hs.length == 0) _untrackBatch(holder, batchId);
     }
 
     // Adds a range to someone's holdings, merging with an adjacent one if possible.
     function _addRange(uint256 batchId, address to, uint256 start, uint256 end) internal {
         Range[] storage hs = holdings[batchId][to];
+        if (hs.length == 0) _trackBatch(to, batchId);
         for (uint256 i = 0; i < hs.length; i++) {
             if (hs[i].end + 1 == start) { hs[i].end = end; return; }
             if (end + 1 == hs[i].start) { hs[i].start = start; return; }
         }
         hs.push(Range(start, end));
+    }
+
+    function _trackBatch(address holder, uint256 batchId) internal {
+        if (heldBatchIndexPlusOne[holder][batchId] != 0) return;
+        heldBatchIds[holder].push(batchId);
+        heldBatchIndexPlusOne[holder][batchId] = heldBatchIds[holder].length;
+    }
+
+    function _untrackBatch(address holder, uint256 batchId) internal {
+        uint256 index = heldBatchIndexPlusOne[holder][batchId] - 1;
+        uint256[] storage batchIds = heldBatchIds[holder];
+        uint256 lastIndex = batchIds.length - 1;
+        if (index != lastIndex) {
+            uint256 lastBatchId = batchIds[lastIndex];
+            batchIds[index] = lastBatchId;
+            heldBatchIndexPlusOne[holder][lastBatchId] = index + 1;
+        }
+        batchIds.pop();
+        delete heldBatchIndexPlusOne[holder][batchId];
     }
 
     // ---------- Views ----------

@@ -1,5 +1,6 @@
 import { BrowserProvider, Contract, JsonRpcProvider, keccak256 } from "ethers";
 import deployed from "./abi/CarbonRegistry.json";
+import { rangesOverlap } from "./overlap";
 
 const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111
 const RPC_URL =
@@ -238,6 +239,23 @@ export async function indexTransfer(txHash: string) {
 export async function buyListing(listingId: number, buyerAddress: string) {
   const reader = readContract();
   const l = await reader.listings(listingId);
+  const listingStart = Number(l.start);
+  const listingEnd = Number(l.end);
+  const batchCount = Number(await reader.batchCount());
+  for (let batchId = 0; batchId < batchCount; batchId++) {
+    const existing = await reader.getHoldings(batchId, buyerAddress);
+    for (const holding of existing) {
+      const holdingStart = Number(holding.start);
+      const holdingEnd = Number(holding.end);
+      if (rangesOverlap(listingStart, listingEnd, holdingStart, holdingEnd)) {
+        const conflictStart = Math.max(listingStart, holdingStart);
+        const conflictEnd = Math.min(listingEnd, holdingEnd);
+        throw new Error(
+          `Purchase blocked: you already hold serials ${conflictStart}–${conflictEnd} in batch #${batchId}.`,
+        );
+      }
+    }
+  }
   const total =
     (BigInt(l.end) - BigInt(l.start) + BigInt(1)) * BigInt(l.pricePerCredit);
 

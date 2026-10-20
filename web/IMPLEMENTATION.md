@@ -118,6 +118,11 @@ scripts in "Helper scripts" below for those.
 - The contract keeps ownership as **ranges per wallet**, so it cannot answer
   "who owns serial X?" by itself. The backend answers it from the saved transfer
   history, then cross-checks the result against the contract.
+- Marketplace purchases are checked against every range the buyer currently
+  holds. The app checks before opening MetaMask, and the updated contract also
+  enforces the rule on-chain. Existing deployments are immutable and need a
+  redeployment for the contract-level check; existing overlapping holdings are
+  not changed automatically.
 - **Owner rule:** the owner of serial X in batch B is the buyer of the most
   recent transfer whose range contains X. If no transfer contains it, the owner
   is the batch's issuer.

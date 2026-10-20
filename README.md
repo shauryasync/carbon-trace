@@ -156,6 +156,9 @@ npm run build
   and a retired credit can still be listed and sold.
 - Listings are not locked: multiple listings can claim the same serials, and
   only the first successful buyer can complete the transfer.
+- A wallet cannot buy serials that overlap ranges it already holds. This check
+  runs in the app immediately; the smart-contract check applies after deploying
+  the updated contract. Existing holdings are not changed automatically.
 - The contract's serial-range overlap check is intended for prototype scale.
 - The app's database index may take time to reflect on-chain activity. The
   blockchain remains the record for transactions.
