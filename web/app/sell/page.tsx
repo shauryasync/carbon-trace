@@ -58,48 +58,62 @@ function SellForm({ company }: { company: CompanyProfile }) {
     finally { setBusy(false); }
   }
 
-  const input = "mt-1 w-full rounded border border-stone-400 p-2";
+  const input = "mt-2 min-h-11 w-full rounded-lg border border-[#E4E4DC] bg-white px-3 py-2 text-sm text-[#0E1512] focus:border-[#0B6B4F] focus:outline-none focus:ring-2 focus:ring-[#0B6B4F]/20";
   return (
-    <div className="max-w-lg space-y-3">
-      <div className="flex items-end gap-2">
-        <label className="flex-1 text-sm">Batch ID<input className={input} inputMode="numeric" value={batchId} onChange={(e) => { setBatchId(e.target.value); setHoldings(null); setDone(null); }} placeholder="For example, 0" /></label>
-        <button onClick={load} disabled={loading || busy} className="rounded border border-stone-500 px-3 py-2 disabled:opacity-50">{loading ? "Loading…" : "Show my credits"}</button>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-5">
+      <section className="overflow-hidden rounded-xl border border-[#E4E4DC] bg-white">
+        <div className="border-b border-[#E4E4DC] bg-[#F2F2EC] px-5 py-4 sm:px-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#0B6B4F]">Orderbook registry · atomic non-custodial</p>
+          <p className="mt-1 text-sm text-[#5B6660]">Credits remain in your wallet until fulfilled.</p>
+        </div>
+        <div className="space-y-5 p-5 sm:p-6">
+          <div className="flex flex-col items-end gap-3 sm:flex-row">
+            <label className="block w-full text-xs font-semibold uppercase tracking-[0.1em] text-[#3F4944]">Batch ID<input className={input} inputMode="numeric" value={batchId} onChange={(e) => { setBatchId(e.target.value); setHoldings(null); setDone(null); }} placeholder="For example, 0" /></label>
+            <button onClick={load} disabled={loading || busy} className="min-h-11 w-full shrink-0 rounded-lg border border-[#E4E4DC] bg-[#E3F1EB] px-4 py-2 text-sm font-semibold text-[#0B6B4F] transition-colors hover:bg-[#D6EAE1] disabled:opacity-50 sm:w-auto">{loading ? "Loading…" : "Show my credits"}</button>
+          </div>
 
       {holdings && holdings.length === 0 && (
-        <p className="text-sm">
+        <p className="rounded-lg border border-[#E4E4DC] bg-[#F2F2EC] p-4 text-sm leading-6 text-[#5B6660]">
           You hold no credits in this batch. If you have not registered credits yet, <Link className="underline" href="/register">register a batch</Link> first, using this same wallet.
         </p>
       )}
       {holdings && holdings.length > 0 && (
-        <>
-          <label className="block text-sm">Which range?
-            <select className={input} value={idx} onChange={(e) => setIdx(Number(e.target.value))}>
-              {holdings.map((h, i) => <option key={i} value={i}>Serials {h.startSerial}–{h.endSerial} ({h.endSerial - h.startSerial + 1} credits)</option>)}
-            </select>
-          </label>
-          <label className="block text-sm">How many credits?<input className={input} inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
-          <label className="block text-sm">Price per credit (test ETH)<input className={input} inputMode="decimal" value={priceEth} onChange={(e) => setPriceEth(e.target.value)} placeholder="0.0001" /></label>
-          <button onClick={sell} disabled={busy || loading} className="rounded bg-emerald-800 px-4 py-2 text-white disabled:opacity-50">{busy ? "Waiting for MetaMask / chain…" : "Create listing"}</button>
-        </>
+        <div className="space-y-4 rounded-lg bg-[#F2F2EC] p-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="block text-xs font-semibold uppercase tracking-[0.1em] text-[#3F4944]">Which range?
+              <select className={input} value={idx} onChange={(e) => setIdx(Number(e.target.value))}>
+                {holdings.map((h, i) => <option key={i} value={i}>Serials {h.startSerial}–{h.endSerial} ({h.endSerial - h.startSerial + 1} credits)</option>)}
+              </select>
+            </label>
+            <label className="block text-xs font-semibold uppercase tracking-[0.1em] text-[#3F4944]">How many credits?<input className={input} inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
+            <label className="block text-xs font-semibold uppercase tracking-[0.1em] text-[#3F4944]">Price per credit (test ETH)<input className={input} inputMode="decimal" value={priceEth} onChange={(e) => setPriceEth(e.target.value)} placeholder="0.0001" /></label>
+          </div>
+          <button onClick={sell} disabled={busy || loading} className="min-h-11 w-full rounded-lg bg-[#0B6B4F] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#00513A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B6B4F] disabled:opacity-50">{busy ? "Waiting for MetaMask / chain…" : "Create listing"}</button>
+        </div>
       )}
 
-      {error && <p className="rounded border border-red-700 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      {error && <p className="rounded-lg border border-[#B42318]/30 bg-[#FDECEA] p-4 text-sm text-[#B42318]" role="alert">{error}</p>}
       {done && (
-        <p className="rounded bg-emerald-50 p-3 text-sm">
+        <p className="rounded-lg border border-[#15803D]/20 bg-[#E6F4EA] p-4 text-sm text-[#0E1512]">
           Listing #{done.listingId} created for serials {done.startSerial}–{done.endSerial}.{" "}
-          <a className="underline" href={explorerTx(done.txHash)} target="_blank" rel="noreferrer">View transaction</a>
+          <a className="font-medium text-[#0B6B4F] underline underline-offset-2" href={explorerTx(done.txHash)} target="_blank" rel="noreferrer">View transaction</a>
         </p>
       )}
+        </div>
+      </section>
+      <p className="rounded-lg border border-[#E4E4DC] bg-[#F2F2EC] p-4 text-xs leading-5 text-[#5B6660]">
+        Listed credits remain in your custody until a buyer executes settlement. Prices are in test ETH and have no real value.
+      </p>
     </div>
   );
 }
 
 export default function SellPage() {
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-1 text-2xl font-semibold">Sell credits</h1>
-      <p className="mb-4 text-sm text-stone-700">Prototype on the Sepolia testnet. Prices are in test ETH with no real value.</p>
+    <main className="mx-auto max-w-5xl">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#5B6660]">Orderbook registry · atomic non-custodial</p>
+      <h1 className="mb-1 mt-2 font-serif text-4xl font-medium tracking-tight text-[#0E1512]">Sell credits</h1>
+      <p className="mb-7 max-w-2xl text-sm leading-6 text-[#5B6660]">Prototype on the Sepolia testnet. Prices are in test ETH with no real value. Credits remain in your wallet until fulfilled.</p>
       <AuthGuard>{(c) => <SellForm company={c} />}</AuthGuard>
     </main>
   );

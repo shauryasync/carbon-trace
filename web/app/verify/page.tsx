@@ -20,57 +20,62 @@ function Card({ m, names, serial }: { m: SerialMatch; names: Record<string, stri
       : "";
 
   return (
-    <article className={`rounded-lg border bg-white p-4 ${m.status === "retired" ? "border-red-700" : "border-stone-300"}`}>
+    <article className={`overflow-hidden rounded-xl border bg-white ${m.status === "retired" ? "border-[#3B2F8F]/40" : "border-[#E4E4DC]"}`}>
       {m.status === "retired" && (
-        <div className="mb-3 rounded bg-red-700 p-3 text-center text-xl font-bold text-white">
-          RETIRED: this credit has been used
+        <div className="flex items-center justify-center gap-2 bg-[#3B2F8F] px-4 py-3 text-center text-sm font-bold uppercase tracking-[0.12em] text-white sm:text-base">
+          <span aria-hidden="true">●</span> Retired · this credit has been used
         </div>
       )}
+      <div className="p-5 sm:p-6">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-semibold">{m.projectId}</h2>
-        <span className="rounded bg-stone-200 px-2 py-0.5 text-sm">{m.status}</span>
+        <h2 className="font-serif text-2xl font-medium text-[#0E1512]">{m.projectId}</h2>
+        <span className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${m.status === "retired" ? "bg-[#ECE9FA] text-[#3B2F8F]" : "bg-[#F2F2EC] text-[#3F4944]"}`}>{m.status}</span>
         {unverified ? (
-          <span className="rounded bg-amber-200 px-2 py-0.5 text-sm">not verified on-chain</span>
+          <span className="rounded-full border border-[#8A6D1D]/30 bg-[#FBF3DC] px-3 py-1 text-xs font-medium text-[#8A6D1D]">Not verified on-chain</span>
         ) : (
-          <span className="rounded bg-stone-200 px-2 py-0.5 text-sm">status read from chain</span>
+          <span className="rounded-full bg-[#E6F4EA] px-3 py-1 text-xs font-medium text-[#15803D]">Status read from chain</span>
         )}
       </div>
-      <p className="text-sm text-stone-700">
+      <p className="mt-2 text-sm text-[#5B6660]">
         Vintage {m.vintage} (reported by the issuer, not proven on-chain) · batch #{m.batchId} · serials {m.startSerial}–{m.endSerial}
       </p>
 
-      <dl className="mt-3 space-y-1 text-sm">
-        <div><dt className="inline font-medium">Issuer: </dt><dd className="inline">{nameOf(names, m.issuer)}</dd></div>
-        <div><dt className="inline font-medium">Auditor: </dt><dd className="inline">{m.auditor ? nameOf(names, m.auditor) : "not yet attested"}</dd></div>
+      <dl className="mt-5 grid gap-3 border-y border-[#E4E4DC] py-4 text-sm sm:grid-cols-3">
+        <div><dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#5B6660]">Issuer</dt><dd className="mt-1 font-medium text-[#0E1512]">{nameOf(names, m.issuer)} <span className="text-xs font-normal text-[#5B6660]">(self-declared)</span></dd></div>
+        <div><dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#5B6660]">Auditor</dt><dd className="mt-1 font-medium text-[#0E1512]">{m.auditor ? nameOf(names, m.auditor) : "Not yet attested"}</dd></div>
         <div>
-          <dt className="inline font-medium">Current owner: </dt>
-          <dd className="inline">{nameOf(names, m.owner)} <span className="text-stone-600">({m.ownerSource})</span></dd>
+          <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#5B6660]">Current owner</dt>
+          <dd className="mt-1 font-medium text-[#0E1512]">{nameOf(names, m.owner)} <span className="text-xs font-normal text-[#5B6660]">({m.ownerSource})</span></dd>
         </div>
       </dl>
 
-      {m.warning && <p className="mt-3 rounded bg-sky-50 p-2 text-sm text-sky-900">Note: {m.warning}</p>}
+      {m.warning && <p className="mt-4 border-l-2 border-[#475569] bg-[#F2F2EC] p-3 text-sm text-[#475569]">Note: {m.warning}</p>}
 
-      <h3 className="mt-4 font-medium">Transfer history</h3>
+      <h3 className="mt-5 font-serif text-xl font-medium text-[#0E1512]">Transfer history</h3>
       {transfers.length === 0 ? (
-        <p className="text-sm text-stone-600">No transfers recorded. Still held by the issuer.</p>
+        <p className="mt-2 rounded-lg bg-[#F2F2EC] p-3 text-sm text-[#5B6660]">No transfers recorded. Still held by the issuer.</p>
       ) : (
-        <ul className="mt-1 space-y-1 text-sm">
+        <ul className="mt-3 space-y-3 border-l border-[#E4E4DC] pl-4 text-sm">
           {transfers.map((t) => (
-            <li key={`${t.txHash}-${t.logIndex}`}>
-              {fmtDate(t.timestamp)}: {nameOf(names, t.seller)} → {nameOf(names, t.buyer)}, serials {t.startSerial}–{t.endSerial},{" "}
-              {formatEther(t.totalPriceWei)} ETH (testnet){" "}
-              <a className="underline" href={explorerTx(t.txHash)} target="_blank" rel="noreferrer">transaction</a>
+            <li key={`${t.txHash}-${t.logIndex}`} className="relative flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+              <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#0B6B4F]" />
+              <span className="leading-6 text-[#3F4944]">
+                <span className="font-mono text-xs text-[#5B6660]">{fmtDate(t.timestamp)}</span><br />
+                {nameOf(names, t.seller)} → {nameOf(names, t.buyer)} · serials <span className="font-mono">{t.startSerial}–{t.endSerial}</span> · {formatEther(t.totalPriceWei)} ETH (testnet)
+              </span>
+              <a className="shrink-0 font-mono text-xs font-medium text-[#0B6B4F] underline underline-offset-2" href={explorerTx(t.txHash)} target="_blank" rel="noreferrer">Transaction ↗</a>
             </li>
           ))}
         </ul>
       )}
 
       {recordUrl && (
-        <div className="mt-4 flex items-center gap-3 border-t border-stone-200 pt-4 text-sm">
-          <QRCodeSVG value={recordUrl} size={96} marginSize={2} level="M" />
+        <div className="mt-5 flex items-center gap-4 border-t border-[#E4E4DC] pt-5 text-sm text-[#5B6660]">
+          <QRCodeSVG value={recordUrl} size={96} marginSize={2} level="M" className="rounded border border-[#E4E4DC] p-2" />
           <span>Scan to open this record (batch #{m.batchId}).</span>
         </div>
       )}
+      </div>
     </article>
   );
 }
@@ -133,38 +138,39 @@ function VerifyInner() {
     : [];
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-1 text-2xl font-semibold">Verify a serial number</h1>
-      <p className="mb-4 text-sm text-stone-700">
+    <main className="mx-auto max-w-4xl">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#5B6660]">Public registry · on-chain record lookup</p>
+      <h1 className="mb-1 mt-2 font-serif text-4xl font-medium tracking-tight text-[#0E1512]">Verify a serial number</h1>
+      <p className="mb-6 max-w-2xl text-sm leading-6 text-[#5B6660]">
         Prototype on the Sepolia testnet with synthetic data. We check records, not real-world carbon removal.
       </p>
-      <div className="mb-6 flex gap-2">
-        <input className="flex-1 rounded border border-stone-400 p-2" inputMode="numeric" placeholder="Serial number, e.g. 1200"
+      <div className="mb-8 flex flex-col gap-2 rounded-xl border border-[#E4E4DC] bg-white p-3 sm:flex-row">
+        <input className="min-h-11 min-w-0 flex-1 rounded-lg border border-[#E4E4DC] bg-[#F2F2EC] px-4 py-2 text-sm text-[#0E1512] placeholder:text-[#5B6660] focus:border-[#0B6B4F] focus:outline-none focus:ring-2 focus:ring-[#0B6B4F]/20" inputMode="numeric" placeholder="Serial number, e.g. 1200"
           value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} />
-        <button className="rounded bg-emerald-800 px-4 text-white" onClick={go}>Look up</button>
+        <button className="min-h-11 rounded-lg bg-[#0B6B4F] px-6 font-medium text-white transition-colors hover:bg-[#00513A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B6B4F]" onClick={go}>Look up</button>
       </div>
 
-      {loading && <p>Looking up…</p>}
-      {error && <p className="text-red-700">{error}</p>}
+      {loading && <p className="rounded-lg border border-[#E4E4DC] bg-white p-4 text-sm text-[#5B6660]">Looking up serial on the registry…</p>}
+      {error && <p className="rounded-lg border border-[#B42318]/30 bg-[#FDECEA] p-4 text-sm text-[#B42318]" role="alert">{error}</p>}
       {data && !data.found && (
-        <p className="rounded bg-stone-100 p-3">
+        <p className="rounded-lg border border-[#E4E4DC] bg-[#F2F2EC] p-4 text-sm leading-6 text-[#3F4944]">
           Not found in the index. (That does not tell us anything about the chain; the index may simply not know this serial.)
         </p>
       )}
       {data?.found && (
         <div className="space-y-4">
           {urlBatch ? (
-            <p className="text-sm">
+            <p className="rounded-lg border border-[#E4E4DC] bg-white p-4 text-sm text-[#3F4944]">
               Showing batch #{urlBatch} only.{" "}
-              <a className="underline" href={`/verify?serial=${encodeURIComponent(urlSerial)}`}>
+              <a className="font-medium text-[#0B6B4F] underline underline-offset-2" href={`/verify?serial=${encodeURIComponent(urlSerial)}`}>
                 Show all {data.matches.length} match{data.matches.length === 1 ? "" : "es"}
               </a>
             </p>
           ) : (
-            data.matches.length > 1 && <p className="text-sm">This serial appears in {data.matches.length} different projects.</p>
+            data.matches.length > 1 && <p className="text-sm text-[#5B6660]">This serial appears in {data.matches.length} different projects.</p>
           )}
           {urlBatch && shown.length === 0 && (
-            <p className="rounded bg-stone-100 p-3 text-sm">Batch #{urlBatch} does not contain serial {urlSerial} in the index.</p>
+            <p className="rounded-lg border border-[#E4E4DC] bg-[#F2F2EC] p-4 text-sm text-[#3F4944]">Batch #{urlBatch} does not contain serial {urlSerial} in the index.</p>
           )}
           {shown.map((m) => <Card key={m.batchId} m={m} names={names} serial={urlSerial} />)}
         </div>

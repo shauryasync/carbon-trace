@@ -96,30 +96,24 @@ function BuyList({ company }: { company: CompanyProfile }) {
 
   return (
     <div className="space-y-4">
-      {error && <p className="rounded border border-red-700 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      {error && <p className="rounded-lg border border-[#B42318]/30 bg-[#FDECEA] p-4 text-sm text-[#B42318]" role="alert">{error}</p>}
       {bought && (
-        <div className={bought.indexed ? "rounded bg-emerald-50 p-3 text-sm" : "rounded bg-amber-50 p-3 text-sm"}>
-          {bought.indexed ? (
-            <p>Purchase complete. <a className="underline" href={explorerTx(bought.txHash)} target="_blank" rel="noreferrer">View transaction</a></p>
-          ) : (
-            <div>
+        <div className="rounded-lg border border-[#15803D]/20 bg-[#E6F4EA] p-4 text-sm text-[#0E1512]">
+          <p>Purchase confirmed on-chain. <a className="font-medium text-[#0B6B4F] underline underline-offset-2" href={explorerTx(bought.txHash)} target="_blank" rel="noreferrer">View transaction</a></p>
+          {!bought.indexed && (
+            <div className="mt-3 rounded-md border border-[#8A6D1D]/20 bg-[#FBF3DC] p-3">
               <p>Purchase confirmed on-chain, history not updated yet.</p>
-              {bought.indexError && <p className="text-xs">{friendlyIndexError(bought.indexError)}</p>}
-              <div className="mt-1 flex items-center gap-3">
-                <a className="underline" href={explorerTx(bought.txHash)} target="_blank" rel="noreferrer">View transaction</a>
-                <button onClick={retrySync} disabled={retryingSync} className="rounded border border-stone-500 px-2 py-1 disabled:opacity-50">
-                  {retryingSync ? "Retrying…" : "Retry"}
-                </button>
-              </div>
+              {bought.indexError && <p className="mt-1 text-xs text-[#8A6D1D]">{friendlyIndexError(bought.indexError)}</p>}
+              <button onClick={retrySync} className="mt-2 min-h-10 rounded-md border border-[#E4E4DC] bg-white px-3 py-1 text-sm">Retry</button>
             </div>
           )}
         </div>
       )}
 
-      {listings === null && !error && <p>Loading listings from the chain…</p>}
+      {listings === null && !error && <p className="rounded-xl border border-[#E4E4DC] bg-white p-5 text-sm text-[#5B6660]">Loading listings from the chain…</p>}
       {listings?.length === 0 && (
-        <p className="rounded bg-stone-100 p-3 text-sm">
-          No active listings right now. If you hold credits, <Link className="font-medium underline" href="/sell">create a Sell listing</Link> so buyers can purchase them.
+        <p className="rounded-xl border border-[#E4E4DC] bg-white p-5 text-sm leading-6 text-[#5B6660]">
+          No active listings right now. If you hold credits, <Link className="font-medium text-[#0B6B4F] underline underline-offset-2" href="/sell">create a Sell listing</Link> so buyers can purchase them.
         </p>
       )}
       {listings?.map((l) => {
@@ -127,17 +121,41 @@ function BuyList({ company }: { company: CompanyProfile }) {
         const price = BigInt(l.pricePerCreditWei);
         const mine = sameAddr(l.seller, company.address);
         return (
-          <article key={l.listingId} className="rounded-lg border border-stone-300 bg-white p-4 text-sm">
-            <p className="font-medium">Batch #{l.batchId}: serials {l.startSerial}–{l.endSerial} ({qty} credits)</p>
-            <p>Seller: {nameOf(names, l.seller)}</p>
-            <p>{formatEther(price)} ETH per credit · total {formatEther(price * BigInt(qty))} ETH (test ETH)</p>
-            {mine ? (
-              <button onClick={() => cancel(l.listingId)} disabled={busyId === l.listingId} className="mt-2 rounded border border-stone-500 px-3 py-1 disabled:opacity-50">Cancel my listing</button>
-            ) : (
-              <button onClick={() => buy(l.listingId)} disabled={busyId === l.listingId} className="mt-2 rounded bg-emerald-800 px-3 py-1 text-white disabled:opacity-50">
-                {busyId === l.listingId ? "Waiting…" : "Buy"}
-              </button>
-            )}
+          <article key={l.listingId} className="overflow-hidden rounded-xl border border-[#E4E4DC] bg-white">
+            <div className="p-5 sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#E4E4DC] pb-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#5B6660]">Batch #{l.batchId}</p>
+                  <p className="mt-1 font-mono text-base font-semibold text-[#0E1512]">Serials {l.startSerial}–{l.endSerial}</p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-medium ${mine ? "bg-[#FBF3DC] text-[#8A6D1D]" : "bg-[#E6F4EA] text-[#15803D]"}`}>
+                  {mine ? "Your listing" : "Active listing"}
+                </span>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-[#3F4944]">Seller: <span className="font-medium text-[#0E1512]">{nameOf(names, l.seller)}</span> <span className="text-xs text-[#5B6660]">(self-declared)</span></p>
+                <p className="font-mono text-xs text-[#5B6660]">{qty} credits</p>
+              </div>
+              <div className="mt-4 h-2 rounded-full bg-[#F2F2EC]">
+                <div className="h-2 w-full rounded-full bg-[#0B6B4F]" />
+              </div>
+              <div className="mt-2 flex justify-between font-mono text-xs text-[#5B6660]"><span>{l.startSerial}</span><span>{l.endSerial}</span></div>
+            </div>
+            <div className="flex flex-col justify-between gap-4 border-t border-[#E4E4DC] bg-[#FAFAF7] p-5 sm:flex-row sm:items-center sm:px-6">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5B6660]">{mine ? "Offered price (test ETH)" : "Total required (test ETH)"}</p>
+                <p className="mt-1 font-mono text-xl font-semibold text-[#0E1512]">
+                  {formatEther(price * BigInt(qty))} ETH <span className="text-xs font-normal text-[#5B6660]">· {formatEther(price)} ETH / credit</span>
+                </p>
+              </div>
+              {mine ? (
+                <button onClick={() => cancel(l.listingId)} disabled={busyId === l.listingId} className="min-h-11 rounded-lg border border-[#E4E4DC] bg-white px-4 py-2 text-sm font-medium text-[#0E1512] transition-colors hover:bg-[#F2F2EC] disabled:opacity-50">Cancel my listing</button>
+              ) : (
+                <button onClick={() => buy(l.listingId)} disabled={busyId === l.listingId} className="min-h-11 rounded-lg bg-[#0B6B4F] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#00513A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B6B4F] disabled:opacity-50">
+                  {busyId === l.listingId ? "Waiting…" : `Buy ${qty} credits`}
+                </button>
+              )}
+            </div>
           </article>
         );
       })}
@@ -147,9 +165,15 @@ function BuyList({ company }: { company: CompanyProfile }) {
 
 export default function BuyPage() {
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-1 text-2xl font-semibold">Buy credits</h1>
-      <p className="mb-4 text-sm text-stone-700">Prototype on the Sepolia testnet with synthetic data and test ETH. Listings are read straight from the chain.</p>
+    <main className="mx-auto max-w-5xl">
+      <div className="mb-7 flex flex-wrap items-end justify-between gap-4 border-b border-[#E4E4DC] pb-5">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0B6B4F]">Sepolia orderbook · live chain listings</p>
+          <h1 className="mb-1 mt-2 font-serif text-4xl font-medium tracking-tight text-[#0E1512]">Buy credits</h1>
+          <p className="max-w-2xl text-sm leading-6 text-[#5B6660]">Prototype on the Sepolia testnet with synthetic data and test ETH. Listings are read straight from the chain.</p>
+        </div>
+        <span className="rounded-full bg-[#E6F4EA] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#15803D]">Sepolia orderbook</span>
+      </div>
       <AuthGuard>{(c) => <BuyList company={c} />}</AuthGuard>
     </main>
   );

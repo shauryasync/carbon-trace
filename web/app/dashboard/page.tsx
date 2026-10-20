@@ -41,25 +41,65 @@ function Dashboard({ company }: { company: CompanyProfile }) {
   }, [company.address]);
 
   return (
-    <div className="space-y-6 text-sm">
-      {error && <p className="text-red-700">{error}</p>}
+    <div className="space-y-10 text-sm">
+      {error && <p className="rounded-lg border border-[#B42318]/30 bg-[#FDECEA] p-4 text-[#B42318]" role="alert">{error}</p>}
       <section>
-        <h2 className="mb-2 text-lg font-medium">Current holdings (read from the chain)</h2>
-        {held === null ? <p>Loading…</p> : held.length === 0 ? <p>No holdings found.</p> : (
-          <ul className="space-y-1">{held.map((h, i) => <li key={i}>Batch #{h.batchId}: serials {h.startSerial}–{h.endSerial}</li>)}</ul>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-[#E4E4DC] pb-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#5B6660]">Sepolia · current chain state</p>
+            <h2 className="mt-1 font-serif text-2xl font-medium text-[#0E1512]">Current holdings</h2>
+          </div>
+          <span className="rounded-full bg-[#E6F4EA] px-3 py-1 text-xs font-medium text-[#15803D]">Read from the chain</span>
+        </div>
+        {held === null ? (
+          <p className="rounded-lg border border-[#E4E4DC] bg-white p-4 text-sm text-[#5B6660]">Loading holdings…</p>
+        ) : held.length === 0 ? (
+          <p className="rounded-lg border border-[#E4E4DC] bg-white p-4 text-sm text-[#5B6660]">No holdings found.</p>
+        ) : (
+          <ul className="space-y-3">{held.map((h, i) => (
+            <li key={i} className="rounded-xl border border-[#E4E4DC] bg-white p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-serif text-lg font-medium text-[#0E1512]">Batch #{h.batchId}</p>
+                  <p className="mt-1 font-mono text-sm text-[#3F4944]">Serials {h.startSerial}–{h.endSerial}</p>
+                </div>
+                <span className="rounded-full bg-[#E3F1EB] px-3 py-1 text-xs font-medium text-[#0B6B4F]">
+                  {h.endSerial - h.startSerial + 1} credits
+                </span>
+              </div>
+              <div className="mt-4 h-2 rounded-full bg-[#E3F1EB]" />
+              <p className="mt-2 text-xs text-[#5B6660]">Current holding · read from the chain</p>
+            </li>
+          ))}</ul>
         )}
       </section>
       <section>
-        <h2 className="mb-2 text-lg font-medium">History</h2>
-        {transfers === null ? <p>Loading…</p> : transfers.length === 0 ? <p>No transactions yet.</p> : (
-          <ul className="space-y-1">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-[#E4E4DC] pb-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#5B6660]">Indexed events</p>
+            <h2 className="mt-1 font-serif text-2xl font-medium text-[#0E1512]">History</h2>
+          </div>
+          <p className="text-xs text-[#5B6660]">History may lag behind the chain.</p>
+        </div>
+        {transfers === null ? (
+          <p className="rounded-lg border border-[#E4E4DC] bg-white p-4 text-sm text-[#5B6660]">Loading history…</p>
+        ) : transfers.length === 0 ? (
+          <p className="rounded-lg border border-[#E4E4DC] bg-white p-4 text-sm text-[#5B6660]">No transactions yet.</p>
+        ) : (
+          <ul className="space-y-0 rounded-xl border border-[#E4E4DC] bg-white px-5">
             {transfers.map((t) => {
               const sold = sameAddr(t.seller, company.address); // "Sold" if we were the seller
               const other = sold ? t.buyer : t.seller;
               return (
-                <li key={`${t.txHash}-${t.logIndex}`}>
-                  <b>{sold ? "Sold" : "Bought"}</b> serials {t.startSerial}–{t.endSerial} (batch #{t.batchId}) {sold ? "to" : "from"} {nameOf(names, other)} for {formatEther(t.totalPriceWei)} ETH on {fmtDate(t.timestamp)}{" "}
-                  <a className="underline" href={explorerTx(t.txHash)} target="_blank" rel="noreferrer">transaction</a>
+                <li key={`${t.txHash}-${t.logIndex}`} className="flex flex-col justify-between gap-3 border-b border-[#E4E4DC] py-4 last:border-b-0 sm:flex-row sm:items-center">
+                  <div className="min-w-0">
+                    <span className={`mr-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${sold ? "bg-[#FBF3DC] text-[#8A6D1D]" : "bg-[#E6F4EA] text-[#15803D]"}`}>{sold ? "Sold" : "Bought"}</span>
+                    <span className="font-mono text-xs text-[#0E1512]">Serials {t.startSerial}–{t.endSerial}</span>
+                    <p className="mt-2 text-xs leading-5 text-[#5B6660]">
+                      Batch #{t.batchId} · {sold ? "to" : "from"} {nameOf(names, other)} (self-declared) · {formatEther(t.totalPriceWei)} ETH · {fmtDate(t.timestamp)}
+                    </p>
+                  </div>
+                  <a className="shrink-0 font-mono text-xs font-medium text-[#0B6B4F] underline underline-offset-2" href={explorerTx(t.txHash)} target="_blank" rel="noreferrer">Transaction ↗</a>
                 </li>
               );
             })}
@@ -72,9 +112,10 @@ function Dashboard({ company }: { company: CompanyProfile }) {
 
 export default function DashboardPage() {
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-1 text-2xl font-semibold">Company dashboard</h1>
-      <p className="mb-4 text-sm text-stone-700">Prototype on the Sepolia testnet with synthetic data. History comes from the search index and may lag behind the chain.</p>
+    <main className="mx-auto max-w-5xl">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0B6B4F]">Sepolia indexer · on-chain holdings</p>
+      <h1 className="mb-1 mt-2 font-serif text-4xl font-medium tracking-tight text-[#0E1512]">Company dashboard</h1>
+      <p className="mb-8 max-w-2xl text-sm leading-6 text-[#5B6660]">History comes from the search index and may lag behind the chain.</p>
       <AuthGuard>{(c) => <Dashboard company={c} />}</AuthGuard>
     </main>
   );

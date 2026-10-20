@@ -14,12 +14,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} min-h-screen bg-slate-50 text-slate-800 antialiased`}>
-        <div className="bg-amber-100 px-4 py-1.5 text-center text-xs font-medium text-amber-900">
+      <body className={`${inter.className} min-h-screen !bg-[#FAFAF7] !text-[#0E1512] antialiased`}>
+        <div className="border-b border-[#E4E4DC] bg-[#FBF3DC] px-4 py-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8A6D1D]">
           Prototype · synthetic data · Sepolia testnet only
         </div>
         <Navbar />
-        <main className="mx-auto max-w-5xl px-4 py-10">{children}</main>
+        <main className="mx-auto w-full max-w-[1120px] flex-1 px-4 py-8 sm:px-6 sm:py-10">{children}</main>
         <Footer />
       </body>
     </html>
