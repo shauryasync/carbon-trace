@@ -28,6 +28,7 @@ function BuyList({ company }: { company: CompanyProfile }) {
   const [names, setNames] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [retryingSync, setRetryingSync] = useState(false);
   const [bought, setBought] = useState<{ txHash: string; indexed: boolean; indexError: string | null } | null>(null);
 
   async function refresh() {
@@ -81,8 +82,16 @@ function BuyList({ company }: { company: CompanyProfile }) {
 
   async function retrySync() {
     if (!bought) return;
-    const r = await indexTransfer(bought.txHash); // safe to repeat
-    setBought({ ...bought, indexed: r.indexed, indexError: r.indexError });
+    setRetryingSync(true);
+    setError("");
+    try {
+      const r = await indexTransfer(bought.txHash); // safe to repeat
+      setBought({ ...bought, indexed: r.indexed, indexError: r.indexError });
+    } catch (e) {
+      setError(readableError(e));
+    } finally {
+      setRetryingSync(false);
+    }
   }
 
   return (
