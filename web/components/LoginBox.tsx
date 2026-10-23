@@ -43,7 +43,24 @@ export default function LoginBox({ onLogin }: { onLogin: (c: CompanyProfile) => 
         className="min-h-11 w-full rounded-lg bg-[#0B6B4F] px-4 py-3 font-medium text-white transition-colors hover:bg-[#00513A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B6B4F] disabled:opacity-50">
         {busy ? "Waiting for MetaMask…" : "Sign in with wallet"}
       </button>
-      {error && <p className="mt-3 rounded-md border border-[#B42318]/25 bg-[#FDECEA] p-3 text-sm text-[#B42318]">{error}</p>}
+      {error && (
+        <p className="mt-3 rounded-md border border-[#B42318]/25 bg-[#FDECEA] p-3 text-sm text-[#B42318]">
+          {error}
+          {error.startsWith("MetaMask not found") && (
+            <>
+              {" "}
+              <a
+                href="https://metamask.io/download/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline underline-offset-2"
+              >
+                Install MetaMask
+              </a>
+            </>
+          )}
+        </p>
+      )}
       <p className="mt-5 border-t border-[#E4E4DC] pt-4 text-xs leading-5 text-[#5B6660]">
         Prototype sign-in: entity names are self-declared and not verified.
       </p>

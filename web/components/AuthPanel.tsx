@@ -102,7 +102,24 @@ export default function AuthPanel({ mode }: { mode: "signup" | "login" }) {
         {loading ? "Waiting for MetaMask…" : mode === "signup" ? "Connect MetaMask and sign up" : "Connect MetaMask"}
       </button>
 
-      {error && <p className="mt-3 rounded-md border border-[#B42318]/25 bg-[#FDECEA] p-3 text-sm text-[#B42318]" role="alert">{error}</p>}
+      {error && (
+        <p className="mt-3 rounded-md border border-[#B42318]/25 bg-[#FDECEA] p-3 text-sm text-[#B42318]" role="alert">
+          {error}
+          {error.startsWith("MetaMask not found") && (
+            <>
+              {" "}
+              <a
+                href="https://metamask.io/download/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline underline-offset-2"
+              >
+                Install MetaMask
+              </a>
+            </>
+          )}
+        </p>
+      )}
 
       <p className="mt-5 border-t border-[#E4E4DC] pt-4 text-center text-xs leading-5 text-[#5B6660]">
         Prototype sign-in: company names are self-declared and not verified. Login proves control of a wallet, not that the company is real.
