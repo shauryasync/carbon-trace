@@ -35,6 +35,53 @@ describe("Trading (atomic buy/sell)", function () {
     expect(range(b[0])).to.deep.equal([1001, 1500]);
   });
 
+  it("allows a buyer to purchase a chosen quantity from the end of a listing", async function () {
+    const [deployer, A, B] = await ethers.getSigners();
+    const registry = await ethers.deployContract("CarbonRegistry");
+    await registry.waitForDeployment();
+    await registry.connect(A).registerBatch("Seller", 1001, 10000, ethers.id("seller.pdf"));
+    await registry.connect(B).registerBatch("Buyer", 1001, 4000, ethers.id("buyer.pdf"));
+    await registry.connect(A).createListing(0, 0, 9000, PRICE);
+
+    const total = 6000n * PRICE;
+    await expect(
+      registry.connect(B).buyPartial(0, 6000, { value: total }),
+    ).to.changeEtherBalances([A, B], [total, -total]);
+
+    const sellerHoldings = await registry.getHoldings(0, A.address);
+    const buyerHoldings = await registry.getHoldings(0, B.address);
+    expect(range(sellerHoldings[0])).to.deep.equal([1001, 4000]);
+    expect(range(buyerHoldings[0])).to.deep.equal([4001, 10000]);
+    const listing = await registry.listings(0);
+    expect(Number(listing.start)).to.equal(1001);
+    expect(Number(listing.end)).to.equal(4000);
+    expect(listing.active).to.equal(true);
+  });
+
+  it("rejects zero or over-available partial quantities", async function () {
+    const { registry, A, B } = await loadFixture(setup);
+    await registry.connect(A).createListing(0, 0, 500, PRICE);
+
+    await expect(registry.connect(B).buyPartial(0, 0)).to.be.revertedWith("Bad quantity");
+    await expect(registry.connect(B).buyPartial(0, 501)).to.be.revertedWith("Bad quantity");
+  });
+
+  it("preserves the seller's holding on both sides when a listing is a partial range", async function () {
+    const { registry, A, B } = await loadFixture(setup);
+    await registry.connect(A).createListing(0, 0, 500, PRICE);
+    await registry.connect(B).buyPartial(0, 200, { value: 200n * PRICE });
+
+    const sellerHoldings = await registry.getHoldings(0, A.address);
+    expect(sellerHoldings.map(range)).to.deep.equal([
+      [1001, 1300],
+      [1501, 2000],
+    ]);
+    const listing = await registry.listings(0);
+    expect(Number(listing.start)).to.equal(1001);
+    expect(Number(listing.end)).to.equal(1300);
+    expect(listing.active).to.equal(true);
+  });
+
   it("blocks buying serials that overlap another batch already held", async function () {
     const { registry, A, B } = await loadFixture(setup);
     await registry.connect(A).registerBatch("P2", 1200, 1800, ethers.id("other.pdf"));

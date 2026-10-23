@@ -125,37 +125,61 @@ contract CarbonRegistry {
     // If ANY step fails, the whole transaction reverts and nothing changes.
     function buy(uint256 listingId) external payable {
         Listing storage l = listings[listingId];
+        _buy(listingId, l.end - l.start + 1);
+    }
+
+    // Partial purchases are taken from the highest serials in the listing.
+    function buyPartial(uint256 listingId, uint256 quantity) external payable {
+        _buy(listingId, quantity);
+    }
+
+    function _buy(uint256 listingId, uint256 quantity) internal {
+        Listing storage l = listings[listingId];
         require(l.active, "Listing not active");
         require(msg.sender != l.seller, "Cannot buy your own listing");
 
-        uint256 total = (l.end - l.start + 1) * l.pricePerCredit;
+        uint256 listingQuantity = l.end - l.start + 1;
+        require(quantity > 0 && quantity <= listingQuantity, "Bad quantity");
+        uint256 start = l.end - quantity + 1;
+        uint256 end = l.end;
+        uint256 total = quantity * l.pricePerCredit;
         require(msg.value == total, "Wrong payment amount");
         require(
-            !_hasOverlappingHolding(msg.sender, l.start, l.end),
+            !_hasOverlappingHolding(msg.sender, start, end),
             "Buyer already holds overlapping serials"
         );
 
-        // the seller must still hold this exact range at the front
+        // The seller must still hold the listing range at the front.
         Range[] storage hs = holdings[l.batchId][l.seller];
         (bool found, uint256 idx) = _findByStart(hs, l.start);
         require(found && hs[idx].end >= l.end, "Listing no longer valid");
 
         // effects first (state changes before sending money)
-        l.active = false;
-        _removeFromFront(l.batchId, l.seller, idx, l.end);
-        _addRange(l.batchId, msg.sender, l.start, l.end);
+        if (quantity == listingQuantity) {
+            l.active = false;
+        } else {
+            l.end = start - 1;
+        }
+        _removeRange(l.batchId, l.seller, idx, start, end);
+        _addRange(l.batchId, msg.sender, start, end);
 
         // payment to the seller; failure reverts everything above
         (bool ok, ) = payable(l.seller).call{value: total}("");
         require(ok, "Payment to seller failed");
 
-        _emitTransfer(listingId, l, total);
+        _emitTransfer(listingId, l, start, end, total);
     }
 
-    function _emitTransfer(uint256 listingId, Listing storage l, uint256 total) internal {
+    function _emitTransfer(
+        uint256 listingId,
+        Listing storage l,
+        uint256 start,
+        uint256 end,
+        uint256 total
+    ) internal {
         emit CreditsTransferred(
             listingId, l.batchId, l.seller, msg.sender,
-            l.start, l.end, total, block.number, block.timestamp
+            start, end, total, block.number, block.timestamp
         );
     }
 
@@ -179,14 +203,27 @@ contract CarbonRegistry {
         return false;
     }
 
-    // Removes serials start..soldEnd from the front of holding idx.
-    function _removeFromFront(uint256 batchId, address holder, uint256 idx, uint256 soldEnd) internal {
+    // Removes a sold subrange, splitting the holding when the sale is in its middle.
+    function _removeRange(
+        uint256 batchId,
+        address holder,
+        uint256 idx,
+        uint256 soldStart,
+        uint256 soldEnd
+    ) internal {
         Range[] storage hs = holdings[batchId][holder];
-        if (hs[idx].end == soldEnd) {
+        uint256 holdingStart = hs[idx].start;
+        uint256 holdingEnd = hs[idx].end;
+        if (soldStart == holdingStart && soldEnd == holdingEnd) {
             hs[idx] = hs[hs.length - 1];
             hs.pop();
-        } else {
+        } else if (soldStart == holdingStart) {
             hs[idx].start = soldEnd + 1;
+        } else if (soldEnd == holdingEnd) {
+            hs[idx].end = soldStart - 1;
+        } else {
+            hs[idx].end = soldStart - 1;
+            hs.push(Range(soldEnd + 1, holdingEnd));
         }
         if (hs.length == 0) _untrackBatch(holder, batchId);
     }

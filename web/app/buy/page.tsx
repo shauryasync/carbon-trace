@@ -26,6 +26,7 @@ async function loadMarketplace() {
 function BuyList({ company }: { company: CompanyProfile }) {
   const [listings, setListings] = useState<Listing[] | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
+  const [purchaseQuantities, setPurchaseQuantities] = useState<Record<number, string>>({});
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [retryingSync, setRetryingSync] = useState(false);
@@ -52,10 +53,10 @@ function BuyList({ company }: { company: CompanyProfile }) {
     return () => { cancelled = true; };
   }, []);
 
-  async function buy(id: number) {
+  async function buy(id: number, quantity: number) {
     setError(""); setBought(null); setBusyId(id);
     try {
-      const r = await buyListing(id, company.address); // also tries to sync the purchase to the backend
+      const r = await buyListing(id, company.address, quantity); // also tries to sync the purchase to the backend
       setBought({ txHash: r.txHash, indexed: r.indexed, indexError: r.indexError });
       confetti();
       try {
@@ -120,6 +121,16 @@ function BuyList({ company }: { company: CompanyProfile }) {
         const qty = l.endSerial - l.startSerial + 1;
         const price = BigInt(l.pricePerCreditWei);
         const mine = sameAddr(l.seller, company.address);
+        const savedQuantity = purchaseQuantities[l.listingId];
+        const savedNumber = Number(savedQuantity);
+        const quantityInput =
+          savedQuantity !== undefined && Number.isSafeInteger(savedNumber) && savedNumber > qty
+            ? String(qty)
+            : savedQuantity ?? String(qty);
+        const selectedQuantity = Number(quantityInput);
+        const validQuantity =
+          Number.isSafeInteger(selectedQuantity) && selectedQuantity >= 1 && selectedQuantity <= qty;
+        const totalQuantity = mine ? qty : validQuantity ? selectedQuantity : 0;
         return (
           <article key={l.listingId} className="overflow-hidden rounded-xl border border-[#E4E4DC] bg-white">
             <div className="p-5 sm:p-6">
@@ -134,8 +145,31 @@ function BuyList({ company }: { company: CompanyProfile }) {
               </div>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm text-[#3F4944]">Seller: <span className="font-medium text-[#0E1512]">{nameOf(names, l.seller)}</span> <span className="text-xs text-[#5B6660]">(self-declared)</span></p>
-                <p className="font-mono text-xs text-[#5B6660]">{qty} credits</p>
+                <p className="font-mono text-xs text-[#5B6660]">{qty} credits available</p>
               </div>
+              {!mine && (
+                <label className="mt-4 block max-w-xs text-xs font-semibold uppercase tracking-[0.1em] text-[#3F4944]">
+                  Credits to buy
+                  <input
+                    type="number"
+                    min={1}
+                    max={qty}
+                    step={1}
+                    inputMode="numeric"
+                    value={quantityInput}
+                    onChange={(e) =>
+                      setPurchaseQuantities((current) => ({
+                        ...current,
+                        [l.listingId]: e.target.value,
+                      }))
+                    }
+                    className="mt-2 min-h-11 w-full rounded-lg border border-[#E4E4DC] bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-[#0E1512] focus:border-[#0B6B4F] focus:outline-none focus:ring-2 focus:ring-[#0B6B4F]/20"
+                  />
+                  <span className="mt-1 block text-xs font-normal normal-case tracking-normal text-[#5B6660]">
+                    Partial purchases use the highest serials in the listing.
+                  </span>
+                </label>
+              )}
               <div className="mt-4 h-2 rounded-full bg-[#F2F2EC]">
                 <div className="h-2 w-full rounded-full bg-[#0B6B4F]" />
               </div>
@@ -145,14 +179,18 @@ function BuyList({ company }: { company: CompanyProfile }) {
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5B6660]">{mine ? "Offered price (test ETH)" : "Total required (test ETH)"}</p>
                 <p className="mt-1 font-mono text-xl font-semibold text-[#0E1512]">
-                  {formatEther(price * BigInt(qty))} ETH <span className="text-xs font-normal text-[#5B6660]">· {formatEther(price)} ETH / credit</span>
+                  {validQuantity || mine ? `${formatEther(price * BigInt(totalQuantity))} ETH` : "—"} <span className="text-xs font-normal text-[#5B6660]">· {formatEther(price)} ETH / credit</span>
                 </p>
               </div>
               {mine ? (
                 <button onClick={() => cancel(l.listingId)} disabled={busyId === l.listingId} className="min-h-11 rounded-lg border border-[#E4E4DC] bg-white px-4 py-2 text-sm font-medium text-[#0E1512] transition-colors hover:bg-[#F2F2EC] disabled:opacity-50">Cancel my listing</button>
               ) : (
-                <button onClick={() => buy(l.listingId)} disabled={busyId === l.listingId} className="min-h-11 rounded-lg bg-[#0B6B4F] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#00513A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B6B4F] disabled:opacity-50">
-                  {busyId === l.listingId ? "Waiting…" : `Buy ${qty} credits`}
+                <button onClick={() => buy(l.listingId, selectedQuantity)} disabled={busyId === l.listingId || !validQuantity} className="min-h-11 rounded-lg bg-[#0B6B4F] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#00513A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B6B4F] disabled:opacity-50">
+                  {busyId === l.listingId
+                    ? "Waiting…"
+                    : validQuantity
+                      ? `Buy ${selectedQuantity} credits`
+                      : "Enter a valid quantity"}
                 </button>
               )}
             </div>

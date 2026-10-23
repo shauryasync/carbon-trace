@@ -236,31 +236,40 @@ export async function indexTransfer(txHash: string) {
   }
 }
 
-export async function buyListing(listingId: number, buyerAddress: string) {
+export async function buyListing(
+  listingId: number,
+  buyerAddress: string,
+  quantity: number,
+) {
   const reader = readContract();
   const l = await reader.listings(listingId);
   const listingStart = Number(l.start);
   const listingEnd = Number(l.end);
+  const listingQuantity = listingEnd - listingStart + 1;
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > listingQuantity) {
+    throw new Error(`Enter a whole-number quantity from 1 to ${listingQuantity}.`);
+  }
+  const purchaseStart = listingEnd - quantity + 1;
+  const purchaseEnd = listingEnd;
   const batchCount = Number(await reader.batchCount());
   for (let batchId = 0; batchId < batchCount; batchId++) {
     const existing = await reader.getHoldings(batchId, buyerAddress);
     for (const holding of existing) {
       const holdingStart = Number(holding.start);
       const holdingEnd = Number(holding.end);
-      if (rangesOverlap(listingStart, listingEnd, holdingStart, holdingEnd)) {
-        const conflictStart = Math.max(listingStart, holdingStart);
-        const conflictEnd = Math.min(listingEnd, holdingEnd);
+      if (rangesOverlap(purchaseStart, purchaseEnd, holdingStart, holdingEnd)) {
+        const conflictStart = Math.max(purchaseStart, holdingStart);
+        const conflictEnd = Math.min(purchaseEnd, holdingEnd);
         throw new Error(
           `Purchase blocked: you already hold serials ${conflictStart}–${conflictEnd} in batch #${batchId}.`,
         );
       }
     }
   }
-  const total =
-    (BigInt(l.end) - BigInt(l.start) + BigInt(1)) * BigInt(l.pricePerCredit);
+  const total = BigInt(quantity) * BigInt(l.pricePerCredit);
 
   const c = await writeContract(buyerAddress);
-  const tx = await c.buy(listingId, { value: total });
+  const tx = await c.buyPartial(listingId, quantity, { value: total });
   const receipt = await tx.wait();
   const log = receipt.logs
     .map((x: any) => {
